@@ -1,25 +1,8 @@
-use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum DruidClientError {
-    #[error("http connection error")]
-    HttpConnection { source: reqwest::Error },
-    #[error("the data for key `{0}` is not available")]
-    Redaction(String),
-    #[error("invalid header (expected {expected:?}, found {found:?})")]
-    InvalidHeader { expected: String, found: String },
-    #[error("couldn't parse object to/from json")]
-    ParsingError { source: serde_json::Error },
-    #[error("Server responded with an error")]
-    ServerError { response: String },
-    #[error("unknown data store error")]
-    Unknown,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum OutputType {
@@ -45,8 +28,47 @@ pub enum Dimension {
         output_type: OutputType,
         extraction_fn: ExtractFN,
     },
+    #[serde(rename_all = "camelCase")]
+    ListFiltered {
+        delegate: Box<Dimension>,
+        values: Vec<String>,
+        is_whitelist: bool
+    },
+
+    #[serde(rename_all = "camelCase")]
+    RegexFiltered {
+        delegate: Box<Dimension>,
+        pattern: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    PrefixFiltered {
+        delegate: Box<Dimension>,
+        prefix: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    #[serde(rename(serialize = "lookup"))]
+    LookupMap {
+        dimension: String,
+        output_name: String,
+        replace_missing_value_with: String,
+        retain_missing_value: bool,
+        lookup: LookupMap,
+    },
+
+    Lookup {
+        dimension: String, 
+        output_name: String,
+        name: String,
+    }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "tag", rename = "tag_value")]
+pub struct LookupMap {
+    map: std::collections::HashMap<String, String>,
+    is_one_to_one: bool,
+}
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum Granularity {
@@ -110,7 +132,6 @@ pub enum Aggregation {
     DoubleLast { name: String, field_name: String },
     #[serde(rename_all = "camelCase")]
     StringFirst{name: String, field_name: String, max_string_bytes: usize },
-    // StringLastPname: String, field_name: String, max_string_bytes: Option<usize>, filter_null_values: bool},
     #[serde(rename_all = "camelCase")]
     StringLast{name: String, field_name: String, max_string_bytes: usize },
 
@@ -173,8 +194,10 @@ pub enum ExtractFN {
     Time { time_format: String, result_format: String, joda: bool },
     #[serde(rename_all = "camelCase")]
     Javascript { function: String },
-    // RegisteredLookup { lookup: Lookup, retain_missing_value: bool }
-    // Lookup { lookup: Lookup, retain_missing_value: bool, injective: bool, replace_missing_value_wiht: String },
+    #[serde(rename_all = "camelCase")]
+    RegisteredLookup { lookup: String, retain_missing_value: bool },
+    #[serde(rename_all = "camelCase")]
+    Lookup { lookup: LookupMap, retain_missing_value: bool, injective: bool, replace_missing_value_with: String },
 
     #[serde(rename_all = "camelCase")]
     Cascade { extraction_fns: Vec<ExtractFN> },

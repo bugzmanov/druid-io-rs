@@ -1,9 +1,10 @@
 use crate::query::model::Dimension;
 use crate::query::model::Query;
-use crate::query::model::{Aggregation, DataSource, DruidClientError, Granularity};
+use crate::query::model::{Aggregation, DataSource, Granularity};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
@@ -12,6 +13,21 @@ pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     result: Vec<T>,
 }
 
+#[derive(Error, Debug)]
+pub enum DruidClientError {
+    #[error("http connection error")]
+    HttpConnection { source: reqwest::Error },
+    #[error("the data for key `{0}` is not available")]
+    Redaction(String),
+    #[error("invalid header (expected {expected:?}, found {found:?})")]
+    InvalidHeader { expected: String, found: String },
+    #[error("couldn't parse object to/from json")]
+    ParsingError { source: serde_json::Error },
+    #[error("Server responded with an error")]
+    ServerError { response: String },
+    #[error("unknown data store error")]
+    Unknown,
+}
 pub struct DruidClient {
     http_client: Client,
     nodes: Vec<String>,
