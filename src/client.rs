@@ -1,25 +1,9 @@
-use crate::model::Dimension;
-use crate::model::{Aggregation, DataSource, DruidClientError, Granularity};
+use crate::query::model::Dimension;
+use crate::query::model::Query;
+use crate::query::model::{Aggregation, DataSource, DruidClientError, Granularity};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "queryType")]
-#[serde(rename_all = "camelCase")]
-pub enum Query {
-    #[serde(rename_all = "camelCase")]
-    TopN {
-        // todo: data_source would result in weird error message
-        data_source: DataSource,
-        dimension: Dimension,
-        threshold: usize,
-        metric: String,
-        aggregations: Vec<Aggregation>,
-        intervals: Vec<String>,
-        granularity: Granularity,
-    },
-}
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
@@ -45,7 +29,7 @@ impl DruidClient {
         "http://localhost:8888/druid/v2/?pretty"
     }
 
-    pub async fn query(&self) -> Result<String, DruidClientError> {
+    pub async fn test_query(&self) -> Result<String, DruidClientError> {
         let content = self
             .http_client
             .post(self.url())
@@ -87,8 +71,8 @@ impl DruidClient {
         Ok(content)
     }
 
-    pub async fn query2(&self, topN: &Query) -> Result<String, DruidClientError> {
-        let request = serde_json::to_string(topN)
+    async fn query_str(&self, query: &Query) -> Result<String, DruidClientError> {
+        let request = serde_json::to_string(query)
             .map_err(|err| DruidClientError::ParsingError { source: err });
 
         let response = self
@@ -106,11 +90,18 @@ impl DruidClient {
         Ok(response)
     }
 
-    pub async fn query3<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+    pub async fn query<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
-        topN: &Query,
+        query: &Query,
     ) -> Result<Vec<QueryResult<T>>, DruidClientError> {
-        let response_str = self.query2(topN).await?;
+        let response_str = dbg!(self.query_str(query).await?);
+        let json_value = serde_json::from_str::<serde_json::Value>(&response_str)
+            .map_err(|err| DruidClientError::ParsingError { source: err });
+        if let Some(error) = json_value?.get("error") {
+            return Err(DruidClientError::ServerError {
+                response: response_str,
+            });
+        }
         let response = serde_json::from_str::<Vec<QueryResult<T>>>(&response_str)
             .map_err(|source| DruidClientError::ParsingError { source: source });
 
@@ -121,41 +112,87 @@ impl DruidClient {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::model::OutputType;
+    use crate::query::model::{ResultFormat, OutputType, JoinType, Ordering};
     #[test]
     fn test_basic() {
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query());
+        let result = tokio_test::block_on(druid_client.test_query());
         println!("{}", result.unwrap());
     }
 
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
         title: String,
+        user: Option<String>,
         count: usize,
     }
 
     #[test]
-    fn test_topN_query() {
+    fn test_top_n_query() {
         let top_n = Query::TopN {
             data_source: DataSource::Table {
                 name: "wikipedia".into(),
             },
             dimension: Dimension::Default {
                 dimension: "page".into(),
-                outputName: "title".into(),
-                outputType: OutputType::STRING,
+                output_name: "title".into(),
+                output_type: OutputType::STRING,
             },
             threshold: 10,
             metric: "count".into(),
-            aggregations: vec![Aggregation::Count {
-                name: "count".into(),
-            }],
+            aggregations: vec![
+                Aggregation::Count {
+                    name: "count".into(),
+                    // name: "count".into(),
+                },
+                Aggregation::StringFirst {
+                    name: "user".into(),
+                    field_name: "user".into(),
+                    max_string_bytes: 1024,
+                },
+            ],
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
-            granularity: Granularity::ALL,
+            granularity: Granularity::All,
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query3::<WikiPage>(&top_n));
-        println!("ololo {:?}", result.unwrap());
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        println!("{:?}", result.unwrap());
+    }
+
+    #[test]
+    fn test_scan_join() {
+        let top_n = Query::Scan {
+            data_source: DataSource::Join {
+                left:  Box::new(DataSource::Table {name : "wikipedia".into()}),
+                right:  Box::new(DataSource::Query {
+                   query: Box::new(Query::Scan {
+                        data_source: DataSource::Table { name: "countries".into() },
+                        batch_size:10,
+                        intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+                        result_format: ResultFormat::List,
+                        columns: vec!["Name".into(), "languages".into()],
+                        limit: None,
+                        filter: None,
+                        ordering: Some(Ordering::None),
+                        context: std::collections::HashMap::new(),
+                   }) 
+                }),
+                right_prefix: "c.".into(),
+                condition: "countryName == \"c.Name\"".into(),
+                join_type: JoinType::Inner,
+            },
+            batch_size: 10,
+            intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+            result_format: ResultFormat::List,
+            columns: vec![],
+            limit: Some(10),
+            filter: None,
+            ordering: Some(Ordering::None),
+            context: std::collections::HashMap::new(),
+
+        };
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        println!("{:?}", result.unwrap());
     }
 }

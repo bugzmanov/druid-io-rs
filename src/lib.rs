@@ -4,7 +4,7 @@ extern crate anyhow;
 extern crate serde_json;
 
 pub mod client;
-pub mod model;
+pub mod query;
 
 #[cfg(test)]
 mod tests {
