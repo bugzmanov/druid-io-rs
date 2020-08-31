@@ -1,6 +1,8 @@
-use crate::query::model::Dimension;
+use crate::query::Dimension;
+use crate::query::Granularity;  
+use crate::query::DataSource;  
 use crate::query::model::Query;
-use crate::query::model::{Aggregation, DataSource, Granularity};
+use crate::query::model::{Aggregation};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -94,7 +96,7 @@ impl DruidClient {
         let response = self
             .http_client
             .post(self.url())
-            .body(request?.clone())
+            .body(dbg!(request?.clone()))
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .send()
             .await
@@ -102,7 +104,6 @@ impl DruidClient {
             .text()
             .await
             .map_err(|source| DruidClientError::HttpConnection { source: source })?;
-
         Ok(response)
     }
 
@@ -110,7 +111,7 @@ impl DruidClient {
         &self,
         query: &Query,
     ) -> Result<Vec<QueryResult<T>>, DruidClientError> {
-        let response_str = dbg!(self.query_str(query).await?);
+        let response_str = dbg!(self.query_str(query).await)?;
         let json_value = serde_json::from_str::<serde_json::Value>(&response_str)
             .map_err(|err| DruidClientError::ParsingError { source: err });
         if let Some(error) = json_value?.get("error") {
@@ -127,8 +128,9 @@ impl DruidClient {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::query::model::{ResultFormat, OutputType, JoinType, Ordering};
+    use crate::query::model::OrderByColumnSpec;
+use super::*;
+    use crate::query::{OutputType, model::{LimitSpec, ResultFormat}, JoinType, Ordering, SortingOrder};
     #[test]
     fn test_basic() {
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
@@ -204,6 +206,47 @@ mod test {
             limit: Some(10),
             filter: None,
             ordering: Some(Ordering::None),
+            context: std::collections::HashMap::new(),
+
+        };
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        println!("{:?}", result.unwrap());
+    }
+    #[test]
+    fn test_group_by() {
+        let top_n = Query::GroupBy {
+            data_source: DataSource::Table {name : "wikipedia".into()},
+            dimensions: vec![Dimension::Default {
+                dimension: "page".into(),
+                output_name: "title".into(),
+                output_type: OutputType::STRING,
+            }],
+            limit_spec: Some(LimitSpec {
+                limit: 10,
+                columns: vec![OrderByColumnSpec {
+                    dimension: "title".into(),
+                    direction: Ordering::Descending,
+                    dimension_order: SortingOrder::Alphanumeric,
+                }],
+            }) ,
+            having: None,
+            granularity: Granularity::All,
+            filter: None,
+            aggregations: vec![
+                Aggregation::Count {
+                    name: "count".into(),
+                    // name: "count".into(),
+                },
+                Aggregation::StringFirst {
+                    name: "user".into(),
+                    field_name: "user".into(),
+                    max_string_bytes: 1024,
+                },
+            ],
+            post_aggregations: vec![],
+            intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+            subtotal_spec: vec![],
             context: std::collections::HashMap::new(),
 
         };
