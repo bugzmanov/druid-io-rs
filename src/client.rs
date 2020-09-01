@@ -130,7 +130,7 @@ impl DruidClient {
 mod test {
     use crate::query::model::OrderByColumnSpec;
 use super::*;
-    use crate::query::{OutputType, model::{LimitSpec, ResultFormat}, JoinType, Ordering, SortingOrder};
+    use crate::query::{OutputType, model::{LimitSpec, ResultFormat, PostAggregation, PostAggregator}, JoinType, Ordering, SortingOrder, Filter};
     #[test]
     fn test_basic() {
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
@@ -179,7 +179,7 @@ use super::*;
 
     #[test]
     fn test_scan_join() {
-        let top_n = Query::Scan {
+        let scan = Query::Scan {
             data_source: DataSource::Join {
                 left:  Box::new(DataSource::Table {name : "wikipedia".into()}),
                 right:  Box::new(DataSource::Query {
@@ -210,12 +210,12 @@ use super::*;
 
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&scan));
         println!("{:?}", result.unwrap());
     }
     #[test]
     fn test_group_by() {
-        let top_n = Query::GroupBy {
+        let group_by = Query::GroupBy {
             data_source: DataSource::Table {name : "wikipedia".into()},
             dimensions: vec![Dimension::Default {
                 dimension: "page".into(),
@@ -232,7 +232,11 @@ use super::*;
             }) ,
             having: None,
             granularity: Granularity::All,
-            filter: None,
+            filter: Some(Filter::Selector {
+                dimension: "user".into(),
+                value: "Taffe316".into(),
+                extract_fn: None,
+            }),
             aggregations: vec![
                 Aggregation::Count {
                     name: "count".into(),
@@ -244,14 +248,30 @@ use super::*;
                     max_string_bytes: 1024,
                 },
             ],
-            post_aggregations: vec![],
+            post_aggregations: vec![
+                PostAggregation::Arithmetic {
+                    name: "count_ololo".into(),
+                    Fn: "/".into(),
+                    fields: vec![
+                        PostAggregator::FieldAccess {
+                            name: "count_percent".into(),
+                            field_name: "count".into(),
+                        },
+                        PostAggregator::Constant {
+                            name: "hundred".into(),
+                            value: 100,
+                        }
+                    ],
+                    ordering: None,
+                }
+            ],
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             subtotal_spec: vec![],
             context: std::collections::HashMap::new(),
 
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&group_by));
         println!("{:?}", result.unwrap());
     }
 }

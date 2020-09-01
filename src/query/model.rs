@@ -180,6 +180,7 @@ pub enum TimeBoundType {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "type")]
 pub enum SearchQuerySpec {
     #[serde(rename_all = "camelCase")]
     InsensitiveContains { value : String },
@@ -193,13 +194,14 @@ pub enum SearchQuerySpec {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
 pub enum PostAggregation {
     #[serde(rename_all = "camelCase")]
     Arithmetic {
         name: String, 
         Fn: String,
         fields: Vec<PostAggregator>,
-        ordering: String
+        ordering: Option<String>,
     },
     DoubleGreatest {
         name: String,
@@ -227,6 +229,7 @@ pub enum PostAggregation {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
 pub enum PostAggregator {
     #[serde(rename_all = "camelCase")]
     FieldAccess {
