@@ -140,7 +140,7 @@ use super::*;
 
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
-        title: String,
+        page: String,
         user: Option<String>,
         count: usize,
     }
@@ -148,21 +148,12 @@ use super::*;
     #[test]
     fn test_top_n_query() {
         let top_n = Query::TopN {
-            data_source: DataSource::Table {
-                name: "wikipedia".into(),
-            },
-            dimension: Dimension::Default {
-                dimension: "page".into(),
-                output_name: "title".into(),
-                output_type: OutputType::STRING,
-            },
+            data_source: DataSource::table("wikipedia"),
+            dimension: Dimension::default("page"),
             threshold: 10,
             metric: "count".into(),
             aggregations: vec![
-                Aggregation::Count {
-                    name: "count".into(),
-                    // name: "count".into(),
-                },
+                Aggregation::count("count"),
                 Aggregation::StringFirst {
                     name: "user".into(),
                     field_name: "user".into(),
@@ -181,7 +172,7 @@ use super::*;
     fn test_scan_join() {
         let scan = Query::Scan {
             data_source: DataSource::Join {
-                left:  Box::new(DataSource::Table {name : "wikipedia".into()}),
+                left:  Box::new(DataSource::table("wikipedia")),
                 right:  Box::new(DataSource::Query {
                    query: Box::new(Query::Scan {
                         data_source: DataSource::Table { name: "countries".into() },

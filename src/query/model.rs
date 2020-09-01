@@ -1,11 +1,10 @@
-use crate::query::Ordering;
+use super::SortingOrder;
 use crate::query::DataSource;
+use crate::query::Dimension;
 use crate::query::Filter;
 use crate::query::Granularity;
-use crate::query::Dimension;
+use crate::query::Ordering;
 use serde::{Deserialize, Serialize};
-use super::SortingOrder;
-
 
 // }
 #[derive(Serialize, Deserialize, Debug)]
@@ -67,13 +66,12 @@ pub enum Query {
         bound: TimeBoundType,
         filter: Filter,
         context: std::collections::HashMap<String, String>,
-
     },
     #[serde(rename_all = "camelCase")]
     SegmentMetadata {
         data_source: DataSource,
         intervals: Vec<String>,
-        to_include: String, 
+        to_include: String,
         merge: bool,
         analysis_types: Vec<AnalysisType>,
         lenient_aggregator_merge: bool,
@@ -82,7 +80,7 @@ pub enum Query {
     DataSourceMetadata {
         data_source: DataSource,
         context: std::collections::HashMap<String, String>,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -159,6 +157,100 @@ pub enum Aggregation {
 
     Filtered { filter: Filter, aggregator: Box<Aggregation>}
 }
+
+// todo: macro
+impl Aggregation {
+    pub fn count(name: &str) -> Aggregation {
+        Aggregation::Count {
+            name: name.to_string(),
+        }
+    }
+    pub fn long_sum(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::LongSum {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn double_sum(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::DoubleSum {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn float_sum(name: &str, field_name: &str) -> Aggregation {
+
+        Aggregation::FloatSum {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn long_max(name: &str, field_name: &str) -> Aggregation {
+
+        Aggregation::LongMax {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn double_max(name: &str, field_name: &&str) -> Aggregation {
+        Aggregation::DoubleMax {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+
+    }
+    pub fn float_max(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::FloatMax {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+
+    }
+    pub fn long_min(name: &str, field_name: &str) -> Aggregation {
+
+        Aggregation::LongMin {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn float_min(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::FloatMin {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn double_min(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::DoubleMin {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+
+    }
+    pub fn long_first(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::LongFirst {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+        
+    }
+    pub fn float_first(name: &str, field_name: &str) -> Aggregation {
+        Aggregation::FloatFirst {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+        
+    }
+    // pub fn double_first(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn long_last(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn float_last(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn double_last(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn string_first(name: &str, field_name: &str, max_string_bytes: usize) -> Aggregation {}
+    // pub fn string_last(name: &str, field_name: &str, max_string_bytes: usize) -> Aggregation {}
+    // pub fn double_any(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn float_any(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn long_any(name: &str, field_name: &str) -> Aggregation {}
+    // pub fn string_any(name: &str, field_name: &str) -> Aggregation {}
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum AnalysisType {
@@ -169,13 +261,14 @@ pub enum AnalysisType {
     TimestampSpec,
     QueryGranularity,
     Aggregators,
-    Rollup
+    Rollup,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum TimeBoundType {
-    MaxTime, MinTime
+    MaxTime,
+    MinTime,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -183,11 +276,14 @@ pub enum TimeBoundType {
 #[serde(tag = "type")]
 pub enum SearchQuerySpec {
     #[serde(rename_all = "camelCase")]
-    InsensitiveContains { value : String },
+    InsensitiveContains { value: String },
     #[serde(rename_all = "camelCase")]
-    Fragment { case_sensitive: bool, values: Vec<String>},
+    Fragment {
+        case_sensitive: bool,
+        values: Vec<String>,
+    },
     #[serde(rename_all = "camelCase")]
-    Contains {  case_sensitive: bool, value: String },
+    Contains { case_sensitive: bool, value: String },
     #[serde(rename_all = "camelCase")]
     Regex { pattern: String },
 }
@@ -198,7 +294,7 @@ pub enum SearchQuerySpec {
 pub enum PostAggregation {
     #[serde(rename_all = "camelCase")]
     Arithmetic {
-        name: String, 
+        name: String,
         Fn: String,
         fields: Vec<PostAggregator>,
         ordering: Option<String>,
@@ -221,7 +317,7 @@ pub enum PostAggregation {
     },
     #[serde(rename_all = "camelCase")]
     Javascript {
-        name: String, 
+        name: String,
         field_names: Vec<String>,
         function: String,
     },
@@ -232,24 +328,13 @@ pub enum PostAggregation {
 #[serde(tag = "type")]
 pub enum PostAggregator {
     #[serde(rename_all = "camelCase")]
-    FieldAccess {
-        name: String,
-        field_name: String,
-    },
+    FieldAccess { name: String, field_name: String },
     #[serde(rename_all = "camelCase")]
-    FinalizingFieldAccess {
-        name: String,
-        field_name: String,
-    },
+    FinalizingFieldAccess { name: String, field_name: String },
     #[serde(rename_all = "camelCase")]
-    Constant {
-        name: String,
-        value: usize,
-    },
+    Constant { name: String, value: usize },
     #[serde(rename_all = "camelCase")]
-    HyperUniqueCardinality {
-        field_name: String,
-    }
+    HyperUniqueCardinality { field_name: String },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -275,7 +360,6 @@ pub enum ResultFormat {
     CompactedList,
     ValueVector,
 }
-
 
 #[rustfmt::skip]
 #[derive(Serialize, Deserialize, Debug)]

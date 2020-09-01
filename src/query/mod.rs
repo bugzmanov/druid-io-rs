@@ -31,7 +31,7 @@ pub enum Dimension {
     ListFiltered {
         delegate: Box<Dimension>,
         values: Vec<String>,
-        is_whitelist: bool
+        is_whitelist: bool,
     },
 
     #[serde(rename_all = "camelCase")]
@@ -55,9 +55,32 @@ pub enum Dimension {
     },
 
     Lookup {
-        dimension: String, 
+        dimension: String,
         output_name: String,
         name: String,
+    },
+}
+
+impl Dimension {
+    pub fn default(dimension: &str) -> Dimension {
+        Dimension::Default {
+            dimension: dimension.into(),
+            output_name: dimension.into(),
+            output_type: OutputType::STRING,
+        }
+    }
+
+    pub fn regex(dimension: Dimension, pattern: &str) -> Dimension {
+        Dimension::RegexFiltered {
+            pattern: pattern.into(),
+            delegate: Box::new(dimension),
+        }
+    }
+    pub fn prefix(dimension: Dimension, prefix: &str) -> Dimension {
+        Dimension::PrefixFiltered {
+            prefix: prefix.into(),
+            delegate: Box::new(dimension),
+        }
     }
 }
 
@@ -84,7 +107,7 @@ pub enum Granularity {
     Quarter,
     Year,
     // #[serde(tag = "type")]
-    Duration { duration: usize }
+    Duration { duration: usize },
 }
 
 #[rustfmt::skip]
@@ -134,7 +157,6 @@ pub enum NullHandling {
     ReturnNull,
 }
 
-
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
@@ -154,7 +176,6 @@ pub enum Filter {
     },
     And {
         fields: Vec<Filter>,
-
     },
     Or {
         fields: Vec<Filter>,
@@ -173,7 +194,6 @@ pub enum Filter {
     In {
         dimension: String,
         values: Vec<String>,
-
     },
     #[serde(rename_all = "camelCase")]
     Like {
@@ -206,19 +226,14 @@ pub enum Filter {
 #[serde(rename_all = "snake_case")]
 pub enum FilterQuerySpec {
     #[serde(rename_all = "camelCase")]
-    Contains {
-        value: String, 
-        case_sensitive: bool,
-    },
+    Contains { value: String, case_sensitive: bool },
     #[serde(rename_all = "camelCase")]
-    InsensitiveContains {
-        value: String,
-    },
+    InsensitiveContains { value: String },
     #[serde(rename_all = "camelCase")]
     Fragment {
         values: Vec<String>,
         case_sensitive: bool,
-    }
+    },
 }
 
 #[rustfmt::skip]
@@ -241,6 +256,29 @@ pub enum DataSource {
     // left: table, join, lookup, query, or inline
     // right: lookup, query, or inline
     Join {left: Box<DataSource>, right: Box<DataSource>, right_prefix: String, condition: String, join_type: JoinType } 
+}
+
+impl DataSource {
+    pub fn table(name: &str) -> DataSource {
+        DataSource::Table { name: name.into() }
+    }
+    pub fn lookup(name: &str) -> DataSource {
+        DataSource::Lookup {
+            lookup: name.into(),
+        }
+    }
+    pub fn union(sources: Vec<&str>) -> DataSource {
+        DataSource::Union {
+            data_sources: sources.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    pub fn query(query: Query) -> DataSource {
+        DataSource::Query {
+            query: Box::new(query),
+        }
+    }
+
 }
 
 #[derive(Serialize, Deserialize, Debug)]
