@@ -52,26 +52,26 @@ pub enum Query {
     Search {
         data_source: DataSource,
         granularity: Granularity,
-        filter: Filter,
+        filter: Option<Filter>,
         limit: usize,
         intervals: Vec<String>,
         search_dimensions: Vec<String>,
         query: SearchQuerySpec,
-        sort: SortingOrder,
+        sort: Option<SortingOrder>,
         context: std::collections::HashMap<String, String>,
     },
     #[serde(rename_all = "camelCase")]
     TimeBoundary {
         data_source: DataSource,
-        bound: TimeBoundType,
-        filter: Filter,
+        bound: Option<TimeBoundType>,
+        filter: Option<Filter>,
         context: std::collections::HashMap<String, String>,
     },
     #[serde(rename_all = "camelCase")]
     SegmentMetadata {
         data_source: DataSource,
         intervals: Vec<String>,
-        to_include: String,
+        to_include: ToInclude,
         merge: bool,
         analysis_types: Vec<AnalysisType>,
         lenient_aggregator_merge: bool,
@@ -83,6 +83,103 @@ pub enum Query {
     },
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum ToInclude {
+    All,
+    None,
+    List(Vec<String>)
+}
+
+pub struct GroupByBuilder {
+    data_source: DataSource,
+    dimensions: Vec<Dimension>,
+    limit_spec: Option<LimitSpec>,
+    having: Option<HavingSpec>,
+    granularity: Granularity,
+    filter: Option<Filter>,
+    aggregations: Vec<Aggregation>,
+    post_aggregations: Vec<PostAggregation>,
+    intervals: Vec<String>,
+    subtotal_spec: Vec<Vec<String>>,
+    context: std::collections::HashMap<String, String>,
+}
+
+impl GroupByBuilder {
+    pub fn new(data_source: DataSource) -> Self {
+        GroupByBuilder {
+            data_source: data_source,
+            dimensions: vec![],
+            limit_spec: None,
+            having: None,
+            granularity: Granularity::All,
+            filter: None,
+            aggregations: vec![],
+            post_aggregations: vec![],
+            intervals: vec![],
+            subtotal_spec: vec![],
+            context: std::collections::HashMap::new(),
+        }
+    }
+    pub fn dimensions(mut self, dimensions: Vec<Dimension>) -> Self {
+        self.dimensions = dimensions;
+        self
+    }
+    pub fn limit(mut self, limit: LimitSpec) -> Self {
+        self.limit_spec = Some(limit);
+        self
+    }
+    pub fn having(mut self, having: HavingSpec) -> Self {
+        self.having = Some(having);
+        self
+    }
+    pub fn granularity(mut self, granularity: Granularity) -> Self {
+        self.granularity = granularity;
+        self
+    }
+    pub fn filter(mut self, filter: Filter) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+    pub fn aggregations(mut self, aggr: Vec<Aggregation>) -> Self {
+        self.aggregations = aggr;
+        self
+    }
+    pub fn post_aggregations(mut self, aggr: Vec<PostAggregation>) -> Self {
+        self.post_aggregations = aggr;
+        self
+    }
+    pub fn intervals(mut self, intervals: Vec<&str>) -> Self {
+        self.intervals = intervals.iter().map(|s|s.to_string()).collect();
+        self
+    }
+    pub fn subtotal_spec(mut self, subtotals: Vec<Vec<String>>) -> Self {
+        self.subtotal_spec = subtotals;
+        self
+    }
+    pub fn context(mut self, context: std::collections::HashMap<String,String>) -> Self {
+        self.context = context;
+        self
+    }
+
+    pub fn build(mut self) -> Query {
+        Query::GroupBy {
+            data_source: self.data_source,
+            dimensions: self.dimensions,
+            limit_spec: self.limit_spec,
+            having: self.having,
+            granularity: self.granularity,
+            filter: self.filter,
+            aggregations: self.aggregations,
+            post_aggregations: self.post_aggregations,
+            intervals: self.intervals,
+            subtotal_spec: self.subtotal_spec,
+            context: self.context,
+            
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Debug)]
 pub enum HllType {
     HLL_4,

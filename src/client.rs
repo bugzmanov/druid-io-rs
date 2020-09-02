@@ -131,7 +131,7 @@ mod test {
     use super::*;
     use crate::query::model::OrderByColumnSpec;
     use crate::query::{
-        model::{HavingSpec, LimitSpec, PostAggregation, PostAggregator, ResultFormat},
+        model::{HavingSpec, LimitSpec, PostAggregation, PostAggregator, ResultFormat, GroupByBuilder, SearchQuerySpec, ToInclude},
         Filter, JoinType, Ordering, OutputType, SortingOrder,
     };
     #[test]
@@ -247,11 +247,108 @@ mod test {
                 ordering: None,
             }],
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
-            subtotal_spec: vec![],
-            context: std::collections::HashMap::new(),
+            subtotal_spec: Default::default(),
+            context: Default::default(),
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(druid_client.query::<WikiPage>(&group_by));
         println!("{:?}", result.unwrap());
     }
+    #[test]
+    fn test_group_by_builder() {
+        let group_by = GroupByBuilder::new(DataSource::table("wikipedia"))
+            .dimensions( vec![Dimension::Default {
+                dimension: "page".into(),
+                output_name: "title".into(),
+                output_type: OutputType::STRING,
+            }])
+            .limit(LimitSpec {
+                limit: 10,
+                columns: vec![OrderByColumnSpec::new(
+                    "title",
+                    Ordering::Descending,
+                    SortingOrder::Alphanumeric,
+                )],
+            })
+            .having(HavingSpec::greater_than("count_ololo", 0.01.into()))
+            .filter(Filter::selector("user", "Taffe316"))
+            .aggregations(vec![
+                Aggregation::count("count"),
+                Aggregation::StringFirst {
+                    name: "user".into(),
+                    field_name: "user".into(),
+                    max_string_bytes: 1024,
+                },
+            ])
+            .post_aggregations( vec![PostAggregation::Arithmetic {
+                name: "count_ololo".into(),
+                Fn: "/".into(),
+                fields: vec![
+                    PostAggregator::field_access("count_percent", "count"),
+                    PostAggregator::constant("hundred", 100.into()),
+                ],
+                ordering: None,
+            }])
+            .intervals (vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()])
+            .build();
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&group_by));
+        println!("{:?}", result.unwrap());
+    }
+
+    #[test]
+    fn test_search() {
+        let top_n = Query::Search {
+            data_source: DataSource::table("wikipedia"),
+            search_dimensions: vec!["page".into(), "user".into()],
+            query : SearchQuerySpec::contains_insensitive("500"),
+            sort: None,
+            filter: None, 
+            limit: 20,
+            intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+            context: Default::default(),
+            granularity: Granularity::All,
+        };
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        println!("{:?}", result.unwrap());
+    }
+    #[test]
+    fn test_time_boundary() {
+        let top_n = Query::TimeBoundary {
+            data_source: DataSource::table("wikipedia"),
+            filter: None, 
+            context: Default::default(),
+            bound: None,
+        };
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        println!("{:?}", result.unwrap());
+    }
+    #[test]
+    fn test_data_source_metadata() {
+        let top_n = Query::DataSourceMetadata {
+            data_source: DataSource::table("wikipedia"),
+            context: Default::default(),
+        };
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<std::collections::HashMap<String, String>>(&top_n));
+        println!("{:?}", result.unwrap());
+    }
+    #[test]
+    fn test_segment_metadata() {
+        let top_n = Query::SegmentMetadata {
+            data_source: DataSource::table("wikipedia"),
+            intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+            to_include: ToInclude::All,
+            merge: true,
+            analysis_types: vec![],
+            lenient_aggregator_merge: false,
+        };
+
+        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let result = tokio_test::block_on(druid_client.query::<std::collections::HashMap<String, String>>(&top_n));
+        println!("{:?}", result.unwrap());
+    }
+
 }
