@@ -1,8 +1,8 @@
-use crate::query::Dimension;
-use crate::query::Granularity;  
-use crate::query::DataSource;  
+use crate::query::model::Aggregation;
 use crate::query::model::Query;
-use crate::query::model::{Aggregation};
+use crate::query::DataSource;
+use crate::query::Dimension;
+use crate::query::Granularity;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -128,9 +128,12 @@ impl DruidClient {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::query::model::OrderByColumnSpec;
-use super::*;
-    use crate::query::{OutputType, model::{LimitSpec, ResultFormat, PostAggregation, PostAggregator}, JoinType, Ordering, SortingOrder, Filter};
+    use crate::query::{
+        model::{LimitSpec, PostAggregation, PostAggregator, ResultFormat, HavingSpec},
+        Filter, JoinType, Ordering, OutputType, SortingOrder,
+    };
     #[test]
     fn test_basic() {
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
@@ -171,25 +174,27 @@ use super::*;
     #[test]
     fn test_scan_join() {
         let scan = Query::Scan {
-            data_source: DataSource::Join {
-                left:  Box::new(DataSource::table("wikipedia")),
-                right:  Box::new(DataSource::Query {
-                   query: Box::new(Query::Scan {
-                        data_source: DataSource::Table { name: "countries".into() },
-                        batch_size:10,
-                        intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+            data_source: DataSource::join(JoinType::Inner)
+                .left(DataSource::table("wikipedia"))
+                .right(
+                    DataSource::query(Query::Scan {
+                        data_source: DataSource::table ( "countries" ),
+                        batch_size: 10,
+                        intervals: vec![
+                            "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into(),
+                        ],
                         result_format: ResultFormat::List,
                         columns: vec!["Name".into(), "languages".into()],
                         limit: None,
                         filter: None,
                         ordering: Some(Ordering::None),
                         context: std::collections::HashMap::new(),
-                   }) 
-                }),
-                right_prefix: "c.".into(),
-                condition: "countryName == \"c.Name\"".into(),
-                join_type: JoinType::Inner,
-            },
+                    }),
+                    "c.",
+                )
+                .condition("countryName == \"c.Name\"")
+                .build()
+                .unwrap(),
             batch_size: 10,
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             result_format: ResultFormat::List,
@@ -198,8 +203,8 @@ use super::*;
             filter: None,
             ordering: Some(Ordering::None),
             context: std::collections::HashMap::new(),
-
         };
+
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(druid_client.query::<WikiPage>(&scan));
         println!("{:?}", result.unwrap());
@@ -207,7 +212,7 @@ use super::*;
     #[test]
     fn test_group_by() {
         let group_by = Query::GroupBy {
-            data_source: DataSource::Table {name : "wikipedia".into()},
+            data_source: DataSource::table("wikipedia"),
             dimensions: vec![Dimension::Default {
                 dimension: "page".into(),
                 output_name: "title".into(),
@@ -215,51 +220,44 @@ use super::*;
             }],
             limit_spec: Some(LimitSpec {
                 limit: 10,
-                columns: vec![OrderByColumnSpec {
-                    dimension: "title".into(),
-                    direction: Ordering::Descending,
-                    dimension_order: SortingOrder::Alphanumeric,
-                }],
-            }) ,
-            having: None,
-            granularity: Granularity::All,
-            filter: Some(Filter::Selector {
-                dimension: "user".into(),
-                value: "Taffe316".into(),
-                extract_fn: None,
+                columns: vec![OrderByColumnSpec::new(
+                    "title",
+                    Ordering::Descending,
+                    SortingOrder::Alphanumeric,
+                )],
             }),
+            having: Some(HavingSpec::greater_than("count", 1)),
+            granularity: Granularity::All,
+            filter: Some(Filter::selector (
+                "user",
+                "Taffe316",
+            )),
             aggregations: vec![
-                Aggregation::Count {
-                    name: "count".into(),
-                    // name: "count".into(),
-                },
+                Aggregation::count("count"),
                 Aggregation::StringFirst {
                     name: "user".into(),
                     field_name: "user".into(),
                     max_string_bytes: 1024,
                 },
             ],
-            post_aggregations: vec![
-                PostAggregation::Arithmetic {
-                    name: "count_ololo".into(),
-                    Fn: "/".into(),
-                    fields: vec![
-                        PostAggregator::FieldAccess {
-                            name: "count_percent".into(),
-                            field_name: "count".into(),
-                        },
-                        PostAggregator::Constant {
-                            name: "hundred".into(),
-                            value: 100,
-                        }
-                    ],
-                    ordering: None,
-                }
-            ],
+            post_aggregations: vec![PostAggregation::Arithmetic {
+                name: "count_ololo".into(),
+                Fn: "/".into(),
+                fields: vec![
+                    PostAggregator::FieldAccess {
+                        name: "count_percent".into(),
+                        field_name: "count".into(),
+                    },
+                    PostAggregator::Constant {
+                        name: "hundred".into(),
+                        value: 100,
+                    },
+                ],
+                ordering: None,
+            }],
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             subtotal_spec: vec![],
             context: std::collections::HashMap::new(),
-
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(druid_client.query::<WikiPage>(&group_by));

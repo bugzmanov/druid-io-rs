@@ -199,7 +199,7 @@ pub enum Filter {
     Like {
         dimension: String,
         pattern: String,
-        excape: Option<String>,
+        escape: Option<String>,
         extraction_fn: Option<ExtractFN>,
     },
     #[serde(rename_all = "camelCase")]
@@ -221,6 +221,52 @@ pub enum Filter {
     True,
 }
 
+impl Filter {
+    pub fn selector(dimension: &str, value: &str) -> Filter {
+        Filter::Selector {
+            dimension: dimension.to_string(),
+            value: value.to_string(),
+            extract_fn: None
+        }
+    }
+
+    pub fn column_comparison(dimensions: Vec<&str>) -> Self {
+        Filter::ColumnComparison {
+            dimensions: dimensions.iter().map(|s| s.to_string()).collect()
+        }
+    }
+
+    pub fn regex(dimension: &str, pattern: &str) -> Self {
+        Filter::Regex {
+            dimension: dimension.to_string(),
+            pattern: pattern.to_string(),
+        }
+    }
+
+    pub fn javascript(dimension:& str, javascript: &str) -> Self {
+        Filter::Javascript {
+            dimension: dimension.to_string(),
+            function: javascript.to_string(),
+        }
+    }
+
+    pub fn in_values(dimension: &str, values: Vec<&str>) -> Self {
+        Filter::In {
+            dimension: dimension.to_string(),
+            values: values.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    pub fn like(dimension: &str, pattern: &str) -> Self {
+        Filter::Like {
+            dimension: dimension.to_string(),
+            pattern: pattern.to_string(),
+            escape: None,
+            extraction_fn: None,
+            
+        }
+    }
+}
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
@@ -258,6 +304,57 @@ pub enum DataSource {
     Join {left: Box<DataSource>, right: Box<DataSource>, right_prefix: String, condition: String, join_type: JoinType } 
 }
 
+pub struct JoinBuilder {
+    left: Option<DataSource>,
+    right: Option<DataSource>,
+    right_prefix: Option<String>,
+    condition: Option<String>,
+    join_type: JoinType,
+}
+
+impl JoinBuilder {
+    pub fn new(join_type: JoinType) -> Self {
+        JoinBuilder {
+            left: None,
+            right: None,
+            right_prefix: None,
+            condition: None,
+            join_type: join_type,
+        }
+    }
+    pub fn left(mut self, left: DataSource) -> Self {
+        self.left = Some(left);
+        self
+    }
+    pub fn right(mut self, right: DataSource, right_prefix: &str) -> Self {
+        self.right = Some(right);
+        self.right_prefix = Some(right_prefix.to_string());
+        self
+    }
+    pub fn condition(mut self, condition: &str) -> Self {
+        self.condition = Some(condition.to_string());
+        self
+    }
+    pub fn build(&mut self) -> Option<DataSource> {
+        if let (Some(left), Some(right), Some(condition), Some(right_prefix)) = (
+            self.left.take(),
+            self.right.take(),
+            self.condition.take(),
+            self.right_prefix.take(),
+        ) {
+            Some(DataSource::Join {
+                join_type: self.join_type.clone(),
+                left: Box::new(left),
+                right: Box::new(right),
+                condition: condition,
+                right_prefix: right_prefix,
+            })
+        } else {
+            return None;
+        }
+    }
+}
+
 impl DataSource {
     pub fn table(name: &str) -> DataSource {
         DataSource::Table { name: name.into() }
@@ -279,9 +376,12 @@ impl DataSource {
         }
     }
 
+    pub fn join(join_type: JoinType) -> JoinBuilder {
+        JoinBuilder::new(join_type)
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum JoinType {
     Inner,

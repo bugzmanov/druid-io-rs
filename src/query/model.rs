@@ -126,9 +126,9 @@ pub enum Aggregation {
     #[serde(rename_all = "camelCase")]
     DoubleLast { name: String, field_name: String },
     #[serde(rename_all = "camelCase")]
-    StringFirst{name: String, field_name: String, max_string_bytes: usize },
+    StringFirst { name: String, field_name: String, max_string_bytes: usize },
     #[serde(rename_all = "camelCase")]
-    StringLast{name: String, field_name: String, max_string_bytes: usize },
+    StringLast { name: String, field_name: String, max_string_bytes: usize },
 
     #[serde(rename_all = "camelCase")]
     DoubleAny { name: String, field_name: String },
@@ -178,14 +178,12 @@ impl Aggregation {
         }
     }
     pub fn float_sum(name: &str, field_name: &str) -> Aggregation {
-
         Aggregation::FloatSum {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
     }
     pub fn long_max(name: &str, field_name: &str) -> Aggregation {
-
         Aggregation::LongMax {
             name: name.to_string(),
             field_name: field_name.to_string(),
@@ -196,17 +194,14 @@ impl Aggregation {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
-
     }
     pub fn float_max(name: &str, field_name: &str) -> Aggregation {
         Aggregation::FloatMax {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
-
     }
     pub fn long_min(name: &str, field_name: &str) -> Aggregation {
-
         Aggregation::LongMin {
             name: name.to_string(),
             field_name: field_name.to_string(),
@@ -223,21 +218,18 @@ impl Aggregation {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
-
     }
     pub fn long_first(name: &str, field_name: &str) -> Aggregation {
         Aggregation::LongFirst {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
-        
     }
     pub fn float_first(name: &str, field_name: &str) -> Aggregation {
         Aggregation::FloatFirst {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
-        
     }
     // pub fn double_first(name: &str, field_name: &str) -> Aggregation {}
     // pub fn long_last(name: &str, field_name: &str) -> Aggregation {}
@@ -286,6 +278,33 @@ pub enum SearchQuerySpec {
     Contains { case_sensitive: bool, value: String },
     #[serde(rename_all = "camelCase")]
     Regex { pattern: String },
+}
+
+impl SearchQuerySpec {
+    pub fn contains_insensitive(value: &str) -> Self {
+        SearchQuerySpec::InsensitiveContains {
+            value: value.to_string(),
+        }
+    }
+
+    pub fn constain(value: &str, case_sensitive: bool) -> Self {
+        SearchQuerySpec::Contains {
+            value: value.to_string(),
+            case_sensitive: case_sensitive,
+        }
+    }
+    pub fn fragment(values: Vec<&str>, case_sensitive: bool) -> Self {
+        SearchQuerySpec::Fragment {
+            values: values.iter().map(|s| s.to_string()).collect(),
+            case_sensitive: case_sensitive,
+        }
+    }
+
+    pub fn regrex(pattern: &str) -> Self {
+        SearchQuerySpec::Regex {
+            pattern: pattern.to_string(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -353,6 +372,15 @@ pub struct OrderByColumnSpec {
     pub dimension_order: SortingOrder,
 }
 
+impl OrderByColumnSpec {
+    pub fn new(dimension: &str, direction: Ordering, dimension_order: SortingOrder) -> Self {
+        OrderByColumnSpec {
+            dimension: dimension.to_string(),
+            direction: direction,
+            dimension_order: dimension_order,
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum ResultFormat {
@@ -364,6 +392,7 @@ pub enum ResultFormat {
 #[rustfmt::skip]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
 pub enum HavingSpec {
     Filter { filter: Filter},
     GreaterThan { aggregation: String, value: usize },
@@ -377,4 +406,30 @@ pub enum HavingSpec {
     Or { having_specs: Vec<HavingSpec> },
     #[serde(rename_all = "camelCase")]
     Not { having_specs: Box<HavingSpec> },
+}
+
+impl HavingSpec {
+    pub fn filter(filter: Filter) -> Self {
+        HavingSpec::Filter {
+            filter: filter
+        }
+    }
+    pub fn greater_than(aggregation: &str, value: usize) -> Self {
+        HavingSpec::GreaterThan {
+            aggregation: aggregation.to_string(),
+            value: value,
+        }
+    }
+    pub fn equal_to(aggregation: &str, value: usize) -> Self {
+        HavingSpec::EqualTo {
+            aggregation: aggregation.to_string(),
+            value: value,
+        }
+    }
+    pub fn less_than(aggregation: &str, value: usize) -> Self {
+        HavingSpec::LessThan {
+            aggregation: aggregation.to_string(),
+            value: value,
+        }
+    }
 }
