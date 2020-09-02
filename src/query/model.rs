@@ -351,11 +351,36 @@ pub enum PostAggregator {
     #[serde(rename_all = "camelCase")]
     FinalizingFieldAccess { name: String, field_name: String },
     #[serde(rename_all = "camelCase")]
-    Constant { name: String, value: usize },
+    Constant { name: String, value: JsonAny },
     #[serde(rename_all = "camelCase")]
     HyperUniqueCardinality { field_name: String },
 }
 
+impl PostAggregator {
+    pub fn field_access(name:&str, field_name: &str) -> Self {
+        PostAggregator::FieldAccess {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn finalized_field_access(name:&str, field_name: &str) -> Self {
+        PostAggregator::FinalizingFieldAccess {
+            name: name.to_string(),
+            field_name: field_name.to_string(),
+        }
+    }
+    pub fn constant(name:&str, value: JsonAny) -> Self {
+        PostAggregator::Constant {
+            name: name.to_string(),
+            value: value,
+        }
+    }
+    pub fn hyper_unique_cardinality(field_name:&str) -> Self {
+        PostAggregator::HyperUniqueCardinality{
+            field_name: field_name.to_string(),
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "type", rename = "default")]
@@ -395,11 +420,10 @@ pub enum ResultFormat {
 #[serde(tag = "type")]
 pub enum HavingSpec {
     Filter { filter: Filter},
-    GreaterThan { aggregation: String, value: usize },
-    EqualTo { aggregation: String, value: usize },
-    LessThan { aggregation: String, value: usize },
-    DimSelector { dimension: Dimension, value: usize }, //todo
-    // DimSelector { dimension: Dimension, value: dyn std::fmt::Debug + Serialize + DeserializeOwned  },
+    GreaterThan { aggregation: String, value: JsonNumber },
+    EqualTo { aggregation: String, value: JsonNumber },
+    LessThan { aggregation: String, value: JsonNumber },
+    DimSelector { dimension: Dimension, value: JsonAny }, //todo
     #[serde(rename_all = "camelCase")]
     And { having_specs: Vec<HavingSpec> },
     #[serde(rename_all = "camelCase")]
@@ -414,22 +438,81 @@ impl HavingSpec {
             filter: filter
         }
     }
-    pub fn greater_than(aggregation: &str, value: usize) -> Self {
+    pub fn greater_than(aggregation: &str, value: JsonNumber) -> Self {
         HavingSpec::GreaterThan {
             aggregation: aggregation.to_string(),
             value: value,
         }
     }
-    pub fn equal_to(aggregation: &str, value: usize) -> Self {
+    pub fn equal_to(aggregation: &str, value:JsonNumber ) -> Self {
         HavingSpec::EqualTo {
             aggregation: aggregation.to_string(),
             value: value,
         }
     }
-    pub fn less_than(aggregation: &str, value: usize) -> Self {
+    pub fn less_than(aggregation: &str, value: JsonNumber) -> Self {
         HavingSpec::LessThan {
             aggregation: aggregation.to_string(),
             value: value,
         }
+    }
+}
+
+
+#[serde(untagged)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum JsonNumber {
+    Float(f32),
+    Integer(isize)
+}
+
+impl From<f32> for JsonNumber {
+    fn from(float: f32) -> Self {
+        JsonNumber::Float(float)
+    }
+}
+
+impl From<isize> for JsonNumber {
+    fn from(integer: isize) -> Self {
+        JsonNumber::Integer(integer)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum JsonAny {
+    Float(f32),
+    Integer(isize),
+    STRING(String),
+    Boolean(bool)
+}
+
+impl From<f32> for JsonAny {
+    fn from(float: f32) -> Self {
+        JsonAny::Float(float)
+    }
+}
+
+impl From<isize> for JsonAny {
+    fn from(integer: isize) -> Self {
+        JsonAny::Integer(integer)
+    }
+}
+
+impl From<bool> for JsonAny {
+    fn from(boolean: bool) -> Self {
+        JsonAny::Boolean(boolean)
+    }
+}
+
+impl From<String> for JsonAny {
+    fn from(str: String) -> Self {
+        JsonAny::STRING(str)
+    }
+}
+
+impl From<&str> for JsonAny {
+    fn from(str: &str) -> Self {
+        JsonAny::STRING(str.to_string())
     }
 }

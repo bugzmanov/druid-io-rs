@@ -131,7 +131,7 @@ mod test {
     use super::*;
     use crate::query::model::OrderByColumnSpec;
     use crate::query::{
-        model::{LimitSpec, PostAggregation, PostAggregator, ResultFormat, HavingSpec},
+        model::{HavingSpec, LimitSpec, PostAggregation, PostAggregator, ResultFormat},
         Filter, JoinType, Ordering, OutputType, SortingOrder,
     };
     #[test]
@@ -178,7 +178,7 @@ mod test {
                 .left(DataSource::table("wikipedia"))
                 .right(
                     DataSource::query(Query::Scan {
-                        data_source: DataSource::table ( "countries" ),
+                        data_source: DataSource::table("countries"),
                         batch_size: 10,
                         intervals: vec![
                             "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into(),
@@ -226,12 +226,9 @@ mod test {
                     SortingOrder::Alphanumeric,
                 )],
             }),
-            having: Some(HavingSpec::greater_than("count", 1)),
+            having: Some(HavingSpec::greater_than("count_ololo", 0.01.into())),
             granularity: Granularity::All,
-            filter: Some(Filter::selector (
-                "user",
-                "Taffe316",
-            )),
+            filter: Some(Filter::selector("user", "Taffe316")),
             aggregations: vec![
                 Aggregation::count("count"),
                 Aggregation::StringFirst {
@@ -244,14 +241,8 @@ mod test {
                 name: "count_ololo".into(),
                 Fn: "/".into(),
                 fields: vec![
-                    PostAggregator::FieldAccess {
-                        name: "count_percent".into(),
-                        field_name: "count".into(),
-                    },
-                    PostAggregator::Constant {
-                        name: "hundred".into(),
-                        value: 100,
-                    },
+                    PostAggregator::field_access("count_percent", "count"),
+                    PostAggregator::constant("hundred", 100.into()),
                 ],
                 ordering: None,
             }],
