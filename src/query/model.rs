@@ -76,13 +76,15 @@ pub enum Query {
         analysis_types: Vec<AnalysisType>,
         lenient_aggregator_merge: bool,
     },
-    #[serde(rename_all = "camelCase")]
-    DataSourceMetadata {
-        data_source: DataSource,
-        context: std::collections::HashMap<String, String>,
-    },
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "queryType", rename = "dataSourceMetadata")]
+pub struct DataSourceMetadata {
+    pub data_source: DataSource,
+    pub context: std::collections::HashMap<String, String>,
+}
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
