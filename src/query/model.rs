@@ -1,4 +1,3 @@
-use super::SortingOrder;
 use crate::query::DataSource;
 use crate::query::Dimension;
 use crate::query::Filter;
@@ -32,18 +31,6 @@ pub enum Query {
         batch_size: usize,
         limit: Option<usize>,
         ordering: Option<Ordering>,
-        context: std::collections::HashMap<String, String>,
-    },
-    #[serde(rename_all = "camelCase")]
-    Search {
-        data_source: DataSource,
-        granularity: Granularity,
-        filter: Option<Filter>,
-        limit: usize,
-        intervals: Vec<String>,
-        search_dimensions: Vec<String>,
-        query: SearchQuerySpec,
-        sort: Option<SortingOrder>,
         context: std::collections::HashMap<String, String>,
     },
     #[serde(rename_all = "camelCase")]
@@ -260,49 +247,6 @@ pub enum TimeBoundType {
     MinTime,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "snake_case")]
-#[serde(tag = "type")]
-pub enum SearchQuerySpec {
-    #[serde(rename_all = "camelCase")]
-    InsensitiveContains { value: String },
-    #[serde(rename_all = "camelCase")]
-    Fragment {
-        case_sensitive: bool,
-        values: Vec<String>,
-    },
-    #[serde(rename_all = "camelCase")]
-    Contains { case_sensitive: bool, value: String },
-    #[serde(rename_all = "camelCase")]
-    Regex { pattern: String },
-}
-
-impl SearchQuerySpec {
-    pub fn contains_insensitive(value: &str) -> Self {
-        SearchQuerySpec::InsensitiveContains {
-            value: value.to_string(),
-        }
-    }
-
-    pub fn constain(value: &str, case_sensitive: bool) -> Self {
-        SearchQuerySpec::Contains {
-            value: value.to_string(),
-            case_sensitive: case_sensitive,
-        }
-    }
-    pub fn fragment(values: Vec<&str>, case_sensitive: bool) -> Self {
-        SearchQuerySpec::Fragment {
-            values: values.iter().map(|s| s.to_string()).collect(),
-            case_sensitive: case_sensitive,
-        }
-    }
-
-    pub fn regrex(pattern: &str) -> Self {
-        SearchQuerySpec::Regex {
-            pattern: pattern.to_string(),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

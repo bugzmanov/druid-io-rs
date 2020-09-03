@@ -2,7 +2,7 @@ use crate::query::model::Aggregation;
 use crate::query::model::{DataSourceMetadata, Query};
 use crate::query::DataSource;
 use crate::query::Dimension;
-use crate::query::{group_by::GroupBy, Granularity};
+use crate::query::{group_by::GroupBy, Granularity, search::Search};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -11,25 +11,32 @@ use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct QueryListResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    timestamp: String,
+    pub timestamp: String,
     #[serde(bound = "")]
-    result: Vec<T>,
+    pub result: Vec<T>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    timestamp: String,
+    pub timestamp: String,
     #[serde(bound = "")]
-    result: T,
+    pub result: T,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    timestamp: String,
-    #[serde(bound = "")]
-    event: T
+    pub timestamp: String,
+     #[serde(bound = "")]
+    pub event: T
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct DimValue {
+    pub dimension: String,
+    pub value: String,
 }
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum DruidClientError {
     #[error("http connection error")]
     HttpConnection { source: reqwest::Error },
@@ -61,7 +68,7 @@ impl DruidClient {
         }
     }
 
-    pub fn url(&self) -> &str {
+    fn url(&self) -> &str {
         "http://localhost:8888/druid/v2/?pretty"
     }
 
@@ -95,6 +102,13 @@ impl DruidClient {
         self._query(query).await
     }
 
+    pub async fn search<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+        &self,
+        query: &Search,
+    ) -> Result<Vec<QueryListResult<DimValue>>, DruidClientError> {
+        self._query(query).await
+    }
+    
     pub async fn group_by<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &GroupBy,
@@ -141,9 +155,9 @@ mod test {
     use super::*;
     use crate::query::{
         model::{
-            ResultFormat, SearchQuerySpec, ToInclude,
+            ResultFormat, ToInclude,
         },
-        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation},
+        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation}, search::SearchQuerySpec,
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -313,7 +327,7 @@ mod test {
 
     #[test]
     fn test_search() {
-        let top_n = Query::Search {
+        let search = Search {
             data_source: DataSource::table("wikipedia"),
             search_dimensions: vec!["page".into(), "user".into()],
             query: SearchQuerySpec::contains_insensitive("500"),
@@ -325,7 +339,7 @@ mod test {
             granularity: Granularity::All,
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        let result = tokio_test::block_on(druid_client.search::<WikiPage>(&search));
         println!("{:?}", result.unwrap());
     }
     #[test]
