@@ -2,7 +2,7 @@ use crate::query::model::Aggregation;
 use crate::query::model::{DataSourceMetadata, Query};
 use crate::query::DataSource;
 use crate::query::Dimension;
-use crate::query::Granularity;
+use crate::query::{group_by::GroupBy, Granularity};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,12 @@ pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     result: T,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+    timestamp: String,
+    #[serde(bound = "")]
+    event: T
+}
 #[derive(Error, Debug)]
 pub enum DruidClientError {
     #[error("http connection error")]
@@ -89,6 +95,13 @@ impl DruidClient {
         self._query(query).await
     }
 
+    pub async fn group_by<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+        &self,
+        query: &GroupBy,
+    ) -> Result<Vec<GroupByResponse<T>>, DruidClientError> {
+        self._query(query).await
+    }
+
     async fn _query<Req, Resp>(&self, query: &Req) -> ClientResult<Resp>
     where
         Req: Serialize,
@@ -97,12 +110,12 @@ impl DruidClient {
         let request = serde_json::to_string(&query)
             .map_err(|err| DruidClientError::ParsingError { source: err });
 
-        let response = match request {
+        let response = match dbg!(request) {
             Ok(str) => self.http_query(&str).await,
             Err(e) => Err(e),
         };
 
-        let response = response.and_then(|str| {
+        let response = dbg!(response).and_then(|str| {
             serde_json::from_str::<Resp>(&str)
                 .map_err(|source| DruidClientError::ParsingResponseError { source: source })
         });
@@ -126,13 +139,11 @@ impl DruidClient {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::query::model::OrderByColumnSpec;
     use crate::query::{
         model::{
-            GroupByBuilder, HavingSpec, LimitSpec, PostAggregation, PostAggregator, ResultFormat,
-            SearchQuerySpec, ToInclude,
+            ResultFormat, SearchQuerySpec, ToInclude,
         },
-        Filter, JoinType, Ordering, OutputType, SortingOrder,
+        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation},
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -204,7 +215,7 @@ mod test {
     }
     #[test]
     fn test_group_by() {
-        let group_by = Query::GroupBy {
+        let group_by = GroupBy {
             data_source: DataSource::table("wikipedia"),
             dimensions: vec![Dimension::Default {
                 dimension: "page".into(),
@@ -244,8 +255,16 @@ mod test {
             context: Default::default(),
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&group_by));
+        let result = tokio_test::block_on(druid_client.group_by::<WikiPage>(&group_by));
         println!("{:?}", result.unwrap());
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Page {
+        count: usize,
+        count_ololo: f32,
+        title: String,
+        user: String,
     }
     #[test]
     fn test_group_by_builder() {
@@ -263,7 +282,7 @@ mod test {
                     SortingOrder::Alphanumeric,
                 )],
             })
-            .having(HavingSpec::greater_than("count_ololo", 0.01.into()))
+            .having(HavingSpec::greater_than("count_ololo", 0.001.into()))
             .filter(Filter::selector("user", "Taffe316"))
             .aggregations(vec![
                 Aggregation::count("count"),
@@ -285,9 +304,10 @@ mod test {
             .intervals(vec![
                 "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into(),
             ])
+            .add_context("groupByStrategy", "v2")
             .build();
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&group_by));
+        let result = tokio_test::block_on(druid_client.group_by::<Page>(&group_by));
         println!("{:?}", result.unwrap());
     }
 
