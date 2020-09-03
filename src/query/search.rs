@@ -1,8 +1,6 @@
 use crate::query::DataSource;
-use crate::query::Dimension;
 use crate::query::Filter;
 use crate::query::Granularity;
-use crate::query::Ordering;
 use serde::{Deserialize, Serialize};
 use super::SortingOrder;
 

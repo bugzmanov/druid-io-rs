@@ -3,7 +3,7 @@ use crate::query::Dimension;
 use crate::query::Filter;
 use crate::query::Granularity;
 use serde::{Deserialize, Serialize};
-use super::{scan::Scan, group_by::GroupBy, search::Search};
+use super::{scan::Scan, group_by::GroupBy, search::Search, time_boundary::TimeBoundary};
 
 // }
 #[derive(Serialize, Deserialize, Debug)]
@@ -22,13 +22,6 @@ pub enum Query {
         granularity: Granularity,
     },
     #[serde(rename_all = "camelCase")]
-    TimeBoundary {
-        data_source: DataSource,
-        bound: Option<TimeBoundType>,
-        filter: Option<Filter>,
-        context: std::collections::HashMap<String, String>,
-    },
-    #[serde(rename_all = "camelCase")]
     SegmentMetadata {
         data_source: DataSource,
         intervals: Vec<String>,
@@ -40,11 +33,27 @@ pub enum Query {
     GroupBy(GroupBy),
     Scan(Scan),
     Search(Search),
+    TimeBoundary(TimeBoundary),
 
+}
+impl From<GroupBy> for Query {
+    fn from(query: GroupBy) -> Self {
+       Query::GroupBy(query) 
+    }
 }
 impl From<Scan> for Query {
     fn from(scan: Scan) -> Self {
        Query::Scan(scan) 
+    }
+}
+impl From<Search> for Query {
+    fn from(query: Search) -> Self {
+       Query::Search(query) 
+    }
+}
+impl From<TimeBoundary> for Query {
+    fn from(query: TimeBoundary) -> Self {
+       Query::TimeBoundary(query) 
     }
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -236,12 +245,6 @@ pub enum AnalysisType {
     Rollup,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub enum TimeBoundType {
-    MaxTime,
-    MinTime,
-}
 
 
 

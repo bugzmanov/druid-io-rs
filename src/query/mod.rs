@@ -5,6 +5,7 @@ pub mod model;
 pub mod group_by;
 pub mod search;
 pub mod scan;
+pub mod time_boundary;
 
 
 #[derive(Debug, Serialize, Deserialize)]

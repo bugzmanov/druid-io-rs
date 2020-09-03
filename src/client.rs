@@ -2,7 +2,7 @@ use crate::query::model::Aggregation;
 use crate::query::model::{DataSourceMetadata, Query};
 use crate::query::DataSource;
 use crate::query::Dimension;
-use crate::query::{group_by::GroupBy, Granularity, search::Search, scan::Scan};
+use crate::query::{group_by::GroupBy, Granularity, search::Search, scan::Scan, time_boundary::TimeBoundary};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -36,12 +36,26 @@ pub struct DimValue {
     pub value: String,
 }
 
+#[serde(rename_all = "camelCase")]
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ScanResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    segmentId: String,
+    segment_id: String,
     columns: Vec<String>,
      #[serde(bound = "")]
     events: Vec<T>
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MinMaxTime {
+   pub max_time: Option<String>,
+   pub min_time: Option<String> 
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct TimeBoundaryResponse {
+    timestamp: String,
+    result: MinMaxTime,
 }
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -129,6 +143,12 @@ impl DruidClient {
     ) -> Result<Vec<ScanResponse<T>>, DruidClientError> {
         self._query(query).await
     }
+    pub async fn time_boundary<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+        &self,
+        query: &TimeBoundary,
+    ) -> ClientResult<Vec<TimeBoundaryResponse>> {
+        self._query(query).await
+    }
 
     async fn _query<Req, Resp>(&self, query: &Req) -> ClientResult<Resp>
     where
@@ -171,7 +191,7 @@ mod test {
         model::{
             ToInclude,
         },
-        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation}, search::SearchQuerySpec, scan::{ResultFormat, Scan},
+        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation}, search::SearchQuerySpec, scan::{ResultFormat, Scan}, time_boundary::{TimeBoundType, TimeBoundary},
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -378,14 +398,14 @@ mod test {
     }
     #[test]
     fn test_time_boundary() {
-        let top_n = Query::TimeBoundary {
+        let top_n = TimeBoundary {
             data_source: DataSource::table("wikipedia"),
             filter: None,
             context: Default::default(),
-            bound: None,
+            bound: TimeBoundType::MinMaxTime,
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        let result = tokio_test::block_on(druid_client.time_boundary::<WikiPage>(&top_n));
         println!("{:?}", result.unwrap());
     }
     #[test]
