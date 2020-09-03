@@ -2,7 +2,7 @@ use crate::query::model::Aggregation;
 use crate::query::model::{DataSourceMetadata, Query};
 use crate::query::DataSource;
 use crate::query::Dimension;
-use crate::query::{group_by::GroupBy, Granularity, search::Search};
+use crate::query::{group_by::GroupBy, Granularity, search::Search, scan::Scan};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,14 @@ pub struct DimValue {
     pub dimension: String,
     pub value: String,
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ScanResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+    segmentId: String,
+    columns: Vec<String>,
+     #[serde(bound = "")]
+    events: Vec<T>
+}
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum DruidClientError {
@@ -47,7 +55,7 @@ pub enum DruidClientError {
     #[error("couldn't serialize object to json")]
     ParsingError { source: serde_json::Error },
     #[error("couldn't deserialize json to object")]
-    ParsingResponseError { source: serde_json::Error },
+    ParsingResponseError { source: serde_json::Error}, // todo: original json but with manageable size
     #[error("Server responded with an error")]
     ServerError { response: String },
     #[error("unknown data store error")]
@@ -115,6 +123,12 @@ impl DruidClient {
     ) -> Result<Vec<GroupByResponse<T>>, DruidClientError> {
         self._query(query).await
     }
+    pub async fn scan<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+        &self,
+        query: &Scan,
+    ) -> Result<Vec<ScanResponse<T>>, DruidClientError> {
+        self._query(query).await
+    }
 
     async fn _query<Req, Resp>(&self, query: &Req) -> ClientResult<Resp>
     where
@@ -155,9 +169,9 @@ mod test {
     use super::*;
     use crate::query::{
         model::{
-            ResultFormat, ToInclude,
+            ToInclude,
         },
-        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation}, search::SearchQuerySpec,
+        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation}, search::SearchQuerySpec, scan::{ResultFormat, Scan},
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -189,13 +203,33 @@ mod test {
         println!("{:?}", result.unwrap());
     }
 
+    #[derive(Serialize, Deserialize, Debug)]
+    struct ScanEvent {
+        __time: usize,
+        cityName: Option<String>,
+        comment: Option<String>,
+        // countryIsoCode: String,
+        // isAnonymous: bool,
+        // isMinor: bool,
+        // isNew: bool,
+        // isRobot: bool,
+        // isUnpatrolled: bool,
+        namespace: Option<String>,
+        page: Option<String>,
+        regionIsoCode: Option<String>,
+        user: String,
+
+        #[serde(rename(deserialize = "c.languages"))]
+        languages: Option<String>,
+        count: usize,
+    }
     #[test]
     fn test_scan_join() {
-        let scan = Query::Scan {
+        let scan = Scan {
             data_source: DataSource::join(JoinType::Inner)
                 .left(DataSource::table("wikipedia"))
                 .right(
-                    DataSource::query(Query::Scan {
+                    DataSource::query(Scan {
                         data_source: DataSource::table("countries"),
                         batch_size: 10,
                         intervals: vec![
@@ -207,7 +241,7 @@ mod test {
                         filter: None,
                         ordering: Some(Ordering::None),
                         context: std::collections::HashMap::new(),
-                    }),
+                    }.into()),
                     "c.",
                 )
                 .condition("countryName == \"c.Name\"")
@@ -224,7 +258,7 @@ mod test {
         };
 
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&scan));
+        let result = tokio_test::block_on(druid_client.scan::<ScanEvent>(&scan));
         println!("{:?}", result.unwrap());
     }
     #[test]

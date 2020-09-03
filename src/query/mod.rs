@@ -1,9 +1,11 @@
-use crate::query::model::Query;
 use serde::{Deserialize, Serialize};
+use model::Query;
 
 pub mod model;
 pub mod group_by;
 pub mod search;
+pub mod scan;
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum OutputType {

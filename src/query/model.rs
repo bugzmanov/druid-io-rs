@@ -2,8 +2,8 @@ use crate::query::DataSource;
 use crate::query::Dimension;
 use crate::query::Filter;
 use crate::query::Granularity;
-use crate::query::Ordering;
 use serde::{Deserialize, Serialize};
+use super::{scan::Scan, group_by::GroupBy, search::Search};
 
 // }
 #[derive(Serialize, Deserialize, Debug)]
@@ -22,18 +22,6 @@ pub enum Query {
         granularity: Granularity,
     },
     #[serde(rename_all = "camelCase")]
-    Scan {
-        data_source: DataSource,
-        intervals: Vec<String>,
-        result_format: ResultFormat,
-        filter: Option<Filter>,
-        columns: Vec<String>,
-        batch_size: usize,
-        limit: Option<usize>,
-        ordering: Option<Ordering>,
-        context: std::collections::HashMap<String, String>,
-    },
-    #[serde(rename_all = "camelCase")]
     TimeBoundary {
         data_source: DataSource,
         bound: Option<TimeBoundType>,
@@ -49,8 +37,16 @@ pub enum Query {
         analysis_types: Vec<AnalysisType>,
         lenient_aggregator_merge: bool,
     },
-}
+    GroupBy(GroupBy),
+    Scan(Scan),
+    Search(Search),
 
+}
+impl From<Scan> for Query {
+    fn from(scan: Scan) -> Self {
+       Query::Scan(scan) 
+    }
+}
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "queryType", rename = "dataSourceMetadata")]
@@ -248,13 +244,6 @@ pub enum TimeBoundType {
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub enum ResultFormat {
-    List,
-    CompactedList,
-    ValueVector,
-}
 
 
 #[serde(untagged)]
