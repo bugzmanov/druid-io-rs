@@ -11,7 +11,7 @@ use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct QueryListResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    // timestamp: String,
+    timestamp: String,
     #[serde(bound = "")]
     result: Vec<T>,
 }
@@ -59,48 +59,6 @@ impl DruidClient {
         "http://localhost:8888/druid/v2/?pretty"
     }
 
-    pub async fn test_query(&self) -> Result<String, DruidClientError> {
-        let content = self
-            .http_client
-            .post(self.url())
-            .body(
-                r#"
-                {
-                    "queryType": "topN",
-                    "dataSource": {
-                        "type": "table",
-                        "name": "wikipedia"
-                    },
-                    "dimension": {
-                        "type": "default",
-                        "dimension": "page",
-                        "outputName": "d0",
-                        "outputType": "STRING"
-                    },
-                    "metric": "a0",
-                    "threshold": 10,
-                    "intervals": ["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z"],
-                    "granularity": "ALL",
-                    "aggregations": [
-                        {
-                        "type": "count",
-                        "name": "a0"
-                        }
-                    ]
-                }
-            "#,
-            )
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .send()
-            .await
-            .map_err(|source| DruidClientError::HttpConnection { source: source })?
-            .text()
-            .await
-            .map_err(|source| DruidClientError::HttpConnection { source: source })?;
-
-        Ok(content)
-    }
-
     async fn http_query(&self, request: &str) -> Result<String, DruidClientError> {
         let response_str = self
             .http_client
@@ -116,45 +74,38 @@ impl DruidClient {
 
         let json_value = serde_json::from_str::<serde_json::Value>(&response_str)
             .map_err(|err| DruidClientError::ParsingError { source: err });
-        if let Some(error) = json_value?.get("error") {
+        if let Some(_) = json_value?.get("error") {
             return Err(DruidClientError::ServerError {
                 response: response_str,
             });
         }
         Ok(response_str)
     }
-    async fn query_str(&self, query: &Query) -> Result<String, DruidClientError> {
-        let request = serde_json::to_string(query)
-            .map_err(|err| DruidClientError::ParsingError { source: err });
-
-        let response = self
-            .http_client
-            .post(self.url())
-            .body(dbg!(request?.clone()))
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .send()
-            .await
-            .map_err(|source| DruidClientError::HttpConnection { source: source })?
-            .text()
-            .await
-            .map_err(|source| DruidClientError::HttpConnection { source: source })?;
-        Ok(response)
-    }
 
     pub async fn query<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &Query,
     ) -> Result<Vec<QueryListResult<T>>, DruidClientError> {
-        let response_str = dbg!(self.query_str(query).await)?;
-        let json_value = serde_json::from_str::<serde_json::Value>(&response_str)
+        self._query(query).await
+    }
+
+    async fn _query<Req, Resp>(&self, query: &Req) -> ClientResult<Resp>
+    where
+        Req: Serialize,
+        Resp: DeserializeOwned,
+    {
+        let request = serde_json::to_string(&query)
             .map_err(|err| DruidClientError::ParsingError { source: err });
-        if let Some(error) = json_value?.get("error") {
-            return Err(DruidClientError::ServerError {
-                response: response_str,
-            });
-        }
-        let response = serde_json::from_str::<Vec<QueryListResult<T>>>(&response_str)
-            .map_err(|source| DruidClientError::ParsingResponseError { source: source });
+
+        let response = match request {
+            Ok(str) => self.http_query(&str).await,
+            Err(e) => Err(e),
+        };
+
+        let response = response.and_then(|str| {
+            serde_json::from_str::<Resp>(&str)
+                .map_err(|source| DruidClientError::ParsingResponseError { source: source })
+        });
 
         response
     }
@@ -168,20 +119,7 @@ impl DruidClient {
             context: Default::default(),
         };
 
-        let request = serde_json::to_string(&query)
-            .map_err(|err| DruidClientError::ParsingError { source: err });
-
-        let response = match request {
-            Ok(str) => self.http_query(&str).await,
-            Err(e) => Err(e),
-        };
-
-        let response = response.and_then(|str| {
-            serde_json::from_str::<Vec<QueryResult<HashMap<String, String>>>>(&str)
-                .map_err(|source| DruidClientError::ParsingResponseError { source: source })
-        });
-
-        response
+        self._query(&query).await
     }
 }
 
@@ -196,13 +134,6 @@ mod test {
         },
         Filter, JoinType, Ordering, OutputType, SortingOrder,
     };
-    #[test]
-    fn test_basic() {
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.test_query());
-        println!("{}", result.unwrap());
-    }
-
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
         page: String,
@@ -391,12 +322,7 @@ mod test {
     }
     #[test]
     fn test_data_source_metadata() {
-        // let top_n = Query::DataSourceMetadata {
-        //     data_source: DataSource::table("wikipedia"),
-        //     context: Default::default(),
-        // };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        // let result = tokio_test::block_on(druid_client.query::<std::collections::HashMap<String, String>>(&top_n));
         let result =
             tokio_test::block_on(druid_client.datasource_metadata(DataSource::table("wikipedia")));
         println!("{:?}", result.unwrap());
