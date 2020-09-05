@@ -1,8 +1,11 @@
 use crate::query::model::Aggregation;
-use crate::query::model::{DataSourceMetadata, Query};
+use crate::query::model::{DataSourceMetadata, Query, JsonAny};
 use crate::query::DataSource;
 use crate::query::Dimension;
-use crate::query::{group_by::GroupBy, Granularity, search::Search, scan::Scan, time_boundary::TimeBoundary};
+use crate::query::{
+    group_by::GroupBy, scan::Scan, search::Search, time_boundary::TimeBoundary, Granularity, segment_metadata::SegmentMetadata,
+};
+use crate::serialization::default_for_null;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -26,8 +29,8 @@ pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     pub timestamp: String,
-     #[serde(bound = "")]
-    pub event: T
+    #[serde(bound = "")]
+    pub event: T,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -41,21 +44,67 @@ pub struct DimValue {
 pub struct ScanResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     segment_id: String,
     columns: Vec<String>,
-     #[serde(bound = "")]
-    events: Vec<T>
+    #[serde(bound = "")]
+    events: Vec<T>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MinMaxTime {
-   pub max_time: Option<String>,
-   pub min_time: Option<String> 
+    pub max_time: Option<String>,
+    pub min_time: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TimeBoundaryResponse {
     timestamp: String,
     result: MinMaxTime,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnDefinition {
+    #[serde(rename (deserialize = "type"))]
+    columnType: String,
+    has_multiple_values: bool,
+    size: usize,
+    cardinality: Option<f32>,
+    min_value: Option<JsonAny>,
+    max_value: Option<JsonAny>,
+    error_message: Option<String>
+
+}
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AggregatorDefinition {
+    #[serde(rename (deserialize = "type"))]
+    aggr_type: String,
+    name: String,
+    field_name: String,
+    expression: Option<String>
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TimestampSpec {
+    column: String,
+    format: String,
+    missingValue: Option<String>,
+}
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SegmentMetadataResponse {
+    id: String,
+    #[serde(default, deserialize_with = "default_for_null")]
+    intervals: Vec<String>,
+    columns: HashMap<String, ColumnDefinition>,
+    query_granularity: Option<String>,
+    rollup: Option<bool>,
+    size: Option<usize>,
+    num_rows: Option<usize>,
+    timestamp_spec: TimestampSpec,
+    #[serde(default, deserialize_with = "default_for_null")]
+    aggregators: HashMap<String, AggregatorDefinition>,
 }
 #[derive(Error, Debug)]
 #[non_exhaustive]
@@ -69,7 +118,7 @@ pub enum DruidClientError {
     #[error("couldn't serialize object to json")]
     ParsingError { source: serde_json::Error },
     #[error("couldn't deserialize json to object")]
-    ParsingResponseError { source: serde_json::Error}, // todo: original json but with manageable size
+    ParsingResponseError { source: serde_json::Error }, // todo: original json but with manageable size
     #[error("Server responded with an error")]
     ServerError { response: String },
     #[error("unknown data store error")]
@@ -130,7 +179,7 @@ impl DruidClient {
     ) -> Result<Vec<QueryListResult<DimValue>>, DruidClientError> {
         self._query(query).await
     }
-    
+
     pub async fn group_by<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &GroupBy,
@@ -147,6 +196,12 @@ impl DruidClient {
         &self,
         query: &TimeBoundary,
     ) -> ClientResult<Vec<TimeBoundaryResponse>> {
+        self._query(query).await
+    }
+    pub async fn segment_metadata(
+        &self,
+        query: &SegmentMetadata,
+    ) -> ClientResult<Vec<SegmentMetadataResponse>> {
         self._query(query).await
     }
 
@@ -188,10 +243,15 @@ impl DruidClient {
 mod test {
     use super::*;
     use crate::query::{
-        model::{
-            ToInclude,
+        group_by::{
+            GroupBy, GroupByBuilder, HavingSpec, LimitSpec, OrderByColumnSpec, PostAggregation,
+            PostAggregator,
         },
-        Filter, JoinType, Ordering, OutputType, SortingOrder, group_by::{OrderByColumnSpec, LimitSpec, HavingSpec, PostAggregator, GroupByBuilder, GroupBy, PostAggregation}, search::SearchQuerySpec, scan::{ResultFormat, Scan}, time_boundary::{TimeBoundType, TimeBoundary},
+        scan::{ResultFormat, Scan},
+        search::SearchQuerySpec,
+        segment_metadata::{AnalysisType, SegmentMetadata, ToInclude},
+        time_boundary::{TimeBoundType, TimeBoundary},
+        Filter, JoinType, Ordering, OutputType, SortingOrder,
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -249,19 +309,23 @@ mod test {
             data_source: DataSource::join(JoinType::Inner)
                 .left(DataSource::table("wikipedia"))
                 .right(
-                    DataSource::query(Scan {
-                        data_source: DataSource::table("countries"),
-                        batch_size: 10,
-                        intervals: vec![
-                            "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into(),
-                        ],
-                        result_format: ResultFormat::List,
-                        columns: vec!["Name".into(), "languages".into()],
-                        limit: None,
-                        filter: None,
-                        ordering: Some(Ordering::None),
-                        context: std::collections::HashMap::new(),
-                    }.into()),
+                    DataSource::query(
+                        Scan {
+                            data_source: DataSource::table("countries"),
+                            batch_size: 10,
+                            intervals: vec![
+                                "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z"
+                                    .into(),
+                            ],
+                            result_format: ResultFormat::List,
+                            columns: vec!["Name".into(), "languages".into()],
+                            limit: None,
+                            filter: None,
+                            ordering: Some(Ordering::None),
+                            context: std::collections::HashMap::new(),
+                        }
+                        .into(),
+                    ),
                     "c.",
                 )
                 .condition("countryName == \"c.Name\"")
@@ -417,18 +481,27 @@ mod test {
     }
     #[test]
     fn test_segment_metadata() {
-        let top_n = Query::SegmentMetadata {
+        let segment_query = SegmentMetadata {
             data_source: DataSource::table("wikipedia"),
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             to_include: ToInclude::All,
-            merge: true,
-            analysis_types: vec![],
+            merge: false,
+            analysis_types: vec![
+                AnalysisType::Minmax,
+                AnalysisType::Size,
+                AnalysisType::Interval,
+                AnalysisType::TimestampSpec,
+                AnalysisType::QueryGranularity,
+                AnalysisType::Aggregators,
+                AnalysisType::Rollup,
+                AnalysisType::Cardinality,
+            ],
             lenient_aggregator_merge: false,
         };
 
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(
-            druid_client.query::<std::collections::HashMap<String, String>>(&top_n),
+            druid_client.segment_metadata( &segment_query)
         );
         println!("{:?}", result.unwrap());
     }

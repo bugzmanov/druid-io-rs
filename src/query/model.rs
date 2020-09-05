@@ -3,11 +3,12 @@ use crate::query::Dimension;
 use crate::query::Filter;
 use crate::query::Granularity;
 use serde::{Deserialize, Serialize};
-use super::{scan::Scan, group_by::GroupBy, search::Search, time_boundary::TimeBoundary};
+use super::{scan::Scan, group_by::GroupBy, search::Search, time_boundary::TimeBoundary, segment_metadata::SegmentMetadata};
 
 // }
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "queryType")]
+#[serde(untagged)]
+// #[serde(tag = "queryType")]
 #[serde(rename_all = "camelCase")]
 pub enum Query {
     #[serde(rename_all = "camelCase")]
@@ -21,20 +22,11 @@ pub enum Query {
         intervals: Vec<String>,
         granularity: Granularity,
     },
-    #[serde(rename_all = "camelCase")]
-    SegmentMetadata {
-        data_source: DataSource,
-        intervals: Vec<String>,
-        to_include: ToInclude,
-        merge: bool,
-        analysis_types: Vec<AnalysisType>,
-        lenient_aggregator_merge: bool,
-    },
     GroupBy(GroupBy),
     Scan(Scan),
     Search(Search),
     TimeBoundary(TimeBoundary),
-
+    SegmentMetadata(SegmentMetadata),
 }
 impl From<GroupBy> for Query {
     fn from(query: GroupBy) -> Self {
@@ -56,20 +48,17 @@ impl From<TimeBoundary> for Query {
        Query::TimeBoundary(query) 
     }
 }
+impl From<SegmentMetadata> for Query {
+    fn from(query: SegmentMetadata) -> Self {
+       Query::SegmentMetadata(query) 
+    }
+}
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "queryType", rename = "dataSourceMetadata")]
 pub struct DataSourceMetadata {
     pub data_source: DataSource,
     pub context: std::collections::HashMap<String, String>,
-}
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "camelCase")]
-pub enum ToInclude {
-    All,
-    None,
-    List(Vec<String>)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -232,18 +221,6 @@ impl Aggregation {
     // pub fn string_any(name: &str, field_name: &str) -> Aggregation {}
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub enum AnalysisType {
-    Cardinality,
-    Minmax,
-    Size,
-    Interval,
-    TimestampSpec,
-    QueryGranularity,
-    Aggregators,
-    Rollup,
-}
 
 
 

@@ -6,6 +6,7 @@ pub mod group_by;
 pub mod search;
 pub mod scan;
 pub mod time_boundary;
+pub mod segment_metadata;
 
 
 #[derive(Debug, Serialize, Deserialize)]
