@@ -8,6 +8,7 @@ use top_n::TopN;
 
 pub mod definitions;
 pub mod group_by;
+pub mod response;
 pub mod scan;
 pub mod search;
 pub mod segment_metadata;

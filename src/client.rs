@@ -1,113 +1,21 @@
+use crate::query::response::GroupByResponse;
+use crate::query::response::MetadataResponse;
+use crate::query::response::ScanResponse;
+use crate::query::response::SearchResponse;
+use crate::query::response::SegmentMetadataResponse;
+use crate::query::response::TimeBoundaryResponse;
+use crate::query::response::TopNResponse;
 use crate::query::{
     group_by::GroupBy, scan::Scan, search::Search, segment_metadata::SegmentMetadata,
     time_boundary::TimeBoundary, top_n::TopN, DataSource,
 };
-use crate::query::{DataSourceMetadata, JsonAny, Query};
-use crate::serialization::default_for_null;
+use crate::query::{DataSourceMetadata, Query};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
-#[derive(Deserialize, Serialize, Debug)]
-pub struct DruidListResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    pub timestamp: String,
-    #[serde(bound = "")]
-    pub result: Vec<T>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct MetadataResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    pub timestamp: String,
-    #[serde(bound = "")]
-    pub result: T,
-}
-
-type TopNResponse<T> = DruidListResponse<T>;
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    pub timestamp: String,
-    #[serde(bound = "")]
-    pub event: T,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct DimValue {
-    pub dimension: String,
-    pub value: JsonAny,
-    pub count: usize,
-}
-
-type SearchResponse = DruidListResponse<DimValue>;
-
-#[serde(rename_all = "camelCase")]
-#[derive(Deserialize, Serialize, Debug)]
-pub struct ScanResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
-    segment_id: String,
-    columns: Vec<String>,
-    #[serde(bound = "")]
-    events: Vec<T>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MinMaxTime {
-    pub max_time: Option<String>,
-    pub min_time: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct TimeBoundaryResponse {
-    timestamp: String,
-    result: MinMaxTime,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ColumnDefinition {
-    #[serde(rename(deserialize = "type"))]
-    column_type: String,
-    has_multiple_values: bool,
-    size: usize,
-    cardinality: Option<f32>,
-    min_value: Option<JsonAny>,
-    max_value: Option<JsonAny>,
-    error_message: Option<String>,
-}
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct AggregatorDefinition {
-    #[serde(rename(deserialize = "type"))]
-    aggr_type: String,
-    name: String,
-    field_name: String,
-    expression: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct TimestampSpec {
-    column: String,
-    format: String,
-    missing_value: Option<String>,
-}
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct SegmentMetadataResponse {
-    id: String,
-    #[serde(default, deserialize_with = "default_for_null")]
-    intervals: Vec<String>,
-    columns: HashMap<String, ColumnDefinition>,
-    query_granularity: Option<String>,
-    rollup: Option<bool>,
-    size: Option<usize>,
-    num_rows: Option<usize>,
-    timestamp_spec: TimestampSpec,
-    #[serde(default, deserialize_with = "default_for_null")]
-    aggregators: HashMap<String, AggregatorDefinition>,
-}
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum DruidClientError {
@@ -126,12 +34,12 @@ pub enum DruidClientError {
     #[error("unknown data store error")]
     Unknown,
 }
+type ClientResult<T> = Result<T, DruidClientError>;
+
 pub struct DruidClient {
     http_client: Client,
     nodes: Vec<String>,
 }
-
-type ClientResult<T> = Result<T, DruidClientError>;
 
 impl DruidClient {
     pub fn new(nodes: &Vec<String>) -> Self {
