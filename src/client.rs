@@ -1,3 +1,4 @@
+use crate::connection::{BrokersPool, SelectionStategy, StaticPool};
 use crate::query::response::GroupByResponse;
 use crate::query::response::MetadataResponse;
 use crate::query::response::ScanResponse;
@@ -38,25 +39,29 @@ type ClientResult<T> = Result<T, DruidClientError>;
 
 pub struct DruidClient {
     http_client: Client,
-    nodes: Vec<String>,
+    brokers_pool: Box<dyn BrokersPool>,
 }
 
 impl DruidClient {
-    pub fn new(nodes: &Vec<String>) -> Self {
+    pub fn new(nodes: Vec<String>) -> Self {
+        let strategy = SelectionStategy::default_for(&nodes);
         DruidClient {
             http_client: Client::new(),
-            nodes: nodes.clone(),
+            brokers_pool: Box::new(StaticPool::new(
+                nodes,
+                strategy
+            )),
         }
     }
 
-    fn url(&self) -> &str {
-        "http://localhost:8888/druid/v2/?pretty"
+    fn url(&self) -> String {
+        format!("http://{}/druid/v2/?pretty", self.brokers_pool.broker())
     }
 
     async fn http_query(&self, request: &str) -> Result<String, DruidClientError> {
         let response_str = self
             .http_client
-            .post(self.url())
+            .post(&self.url())
             .body(request.to_string())
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .send()
@@ -199,7 +204,7 @@ mod test {
             granularity: Granularity::All,
             context: context,
         };
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.top_n::<WikiPage>(&top_n));
         println!("{:?}", result.unwrap());
     }
@@ -258,7 +263,7 @@ mod test {
             context: std::collections::HashMap::new(),
         };
 
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.scan::<ScanEvent>(&scan));
         println!("{:?}", result.unwrap());
     }
@@ -303,7 +308,7 @@ mod test {
             subtotal_spec: Default::default(),
             context: Default::default(),
         };
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.group_by::<WikiPage>(&group_by));
         println!("{:?}", result.unwrap());
     }
@@ -356,7 +361,7 @@ mod test {
             .add_context("groupByStrategy", "v2")
             // .add_context("resultAsArray", "true")
             .build();
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.group_by::<Page>(&group_by));
         println!("{:?}", result.unwrap());
     }
@@ -374,7 +379,7 @@ mod test {
             context: Default::default(),
             granularity: Granularity::All,
         };
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.search::<WikiPage>(&search));
         println!("{:?}", result.unwrap());
     }
@@ -386,13 +391,13 @@ mod test {
             context: Default::default(),
             bound: TimeBoundType::MinMaxTime,
         };
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.time_boundary::<WikiPage>(&top_n));
         println!("{:?}", result.unwrap());
     }
     #[test]
     fn test_data_source_metadata() {
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result =
             tokio_test::block_on(druid_client.datasource_metadata(DataSource::table("wikipedia")));
         println!("{:?}", result.unwrap());
@@ -417,7 +422,7 @@ mod test {
             lenient_aggregator_merge: false,
         };
 
-        let druid_client = DruidClient::new(&vec!["ololo".into()]);
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.segment_metadata(&segment_query));
         println!("{:?}", result.unwrap());
     }

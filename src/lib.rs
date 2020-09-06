@@ -1,6 +1,7 @@
 extern crate serde_json;
 
 pub mod client;
+pub mod connection;
 pub mod query;
 pub mod serialization;
 
