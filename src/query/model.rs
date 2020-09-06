@@ -1,32 +1,25 @@
 use crate::query::DataSource;
-use crate::query::Dimension;
 use crate::query::Filter;
-use crate::query::Granularity;
 use serde::{Deserialize, Serialize};
-use super::{scan::Scan, group_by::GroupBy, search::Search, time_boundary::TimeBoundary, segment_metadata::SegmentMetadata};
+use super::{scan::Scan, group_by::GroupBy, search::Search, time_boundary::TimeBoundary, segment_metadata::SegmentMetadata, top_n::TopN};
 
 // }
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-// #[serde(tag = "queryType")]
 #[serde(rename_all = "camelCase")]
 pub enum Query {
     #[serde(rename_all = "camelCase")]
-    TopN {
-        // todo: data_source would result in weird error message
-        data_source: DataSource,
-        dimension: Dimension,
-        threshold: usize,
-        metric: String,
-        aggregations: Vec<Aggregation>,
-        intervals: Vec<String>,
-        granularity: Granularity,
-    },
+    TopN(TopN),
     GroupBy(GroupBy),
     Scan(Scan),
     Search(Search),
     TimeBoundary(TimeBoundary),
     SegmentMetadata(SegmentMetadata),
+}
+impl From<TopN> for Query {
+    fn from(query: TopN) -> Self {
+       Query::TopN(query) 
+    }
 }
 impl From<GroupBy> for Query {
     fn from(query: GroupBy) -> Self {
@@ -63,8 +56,11 @@ pub struct DataSourceMetadata {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum HllType {
+    #[allow(non_camel_case_types)]
     HLL_4,
+    #[allow(non_camel_case_types)]
     HLL_6,
+    #[allow(non_camel_case_types)]
     HLL_8,
 }
 #[rustfmt::skip]

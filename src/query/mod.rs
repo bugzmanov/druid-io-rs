@@ -7,6 +7,7 @@ pub mod search;
 pub mod scan;
 pub mod time_boundary;
 pub mod segment_metadata;
+pub mod top_n;
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,21 +99,20 @@ pub struct LookupMap {
     is_one_to_one: bool,
 }
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum Granularity {
     All,
     None,
     Second,
     Minute,
-    Fifteen_minute,
-    Thirty_minute,
+    FifteenMinute,
+    ThirtyMinute,
     Hour,
     Day,
     Week,
     Month,
     Quarter,
     Year,
-    // #[serde(tag = "type")]
     Duration { duration: usize },
 }
 

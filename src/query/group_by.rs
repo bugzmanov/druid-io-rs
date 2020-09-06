@@ -1,4 +1,7 @@
-use super::{model::{JsonNumber, JsonAny, Aggregation}, SortingOrder};
+use super::{
+    model::{Aggregation, JsonAny, JsonNumber},
+    SortingOrder,
+};
 use crate::query::DataSource;
 use crate::query::Dimension;
 use crate::query::Filter;
@@ -69,9 +72,7 @@ pub enum HavingSpec {
 
 impl HavingSpec {
     pub fn filter(filter: Filter) -> Self {
-        HavingSpec::Filter {
-            filter: filter
-        }
+        HavingSpec::Filter { filter: filter }
     }
     pub fn greater_than(aggregation: &str, value: JsonNumber) -> Self {
         HavingSpec::GreaterThan {
@@ -79,7 +80,7 @@ impl HavingSpec {
             value: value,
         }
     }
-    pub fn equal_to(aggregation: &str, value:JsonNumber ) -> Self {
+    pub fn equal_to(aggregation: &str, value: JsonNumber) -> Self {
         HavingSpec::EqualTo {
             aggregation: aggregation.to_string(),
             value: value,
@@ -100,7 +101,8 @@ pub enum PostAggregation {
     #[serde(rename_all = "camelCase")]
     Arithmetic {
         name: String,
-        Fn: String,
+        #[serde(rename(serialize = "fn"))]
+        function: String,
         fields: Vec<PostAggregator>,
         ordering: Option<String>,
     },
@@ -143,31 +145,30 @@ pub enum PostAggregator {
 }
 
 impl PostAggregator {
-    pub fn field_access(name:&str, field_name: &str) -> Self {
+    pub fn field_access(name: &str, field_name: &str) -> Self {
         PostAggregator::FieldAccess {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
     }
-    pub fn finalized_field_access(name:&str, field_name: &str) -> Self {
+    pub fn finalized_field_access(name: &str, field_name: &str) -> Self {
         PostAggregator::FinalizingFieldAccess {
             name: name.to_string(),
             field_name: field_name.to_string(),
         }
     }
-    pub fn constant(name:&str, value: JsonAny) -> Self {
+    pub fn constant(name: &str, value: JsonAny) -> Self {
         PostAggregator::Constant {
             name: name.to_string(),
             value: value,
         }
     }
-    pub fn hyper_unique_cardinality(field_name:&str) -> Self {
-        PostAggregator::HyperUniqueCardinality{
+    pub fn hyper_unique_cardinality(field_name: &str) -> Self {
+        PostAggregator::HyperUniqueCardinality {
             field_name: field_name.to_string(),
         }
     }
 }
-
 
 pub struct GroupByBuilder {
     data_source: DataSource,
@@ -228,23 +229,23 @@ impl GroupByBuilder {
         self
     }
     pub fn intervals(mut self, intervals: Vec<&str>) -> Self {
-        self.intervals = intervals.iter().map(|s|s.to_string()).collect();
+        self.intervals = intervals.iter().map(|s| s.to_string()).collect();
         self
     }
     pub fn subtotal_spec(mut self, subtotals: Vec<Vec<String>>) -> Self {
         self.subtotal_spec = subtotals;
         self
     }
-    pub fn context(mut self, context: std::collections::HashMap<String,String>) -> Self {
+    pub fn context(mut self, context: std::collections::HashMap<String, String>) -> Self {
         self.context = context;
         self
     }
 
-    pub fn add_context(mut self,key: &str, value: &str) -> Self {
-       self.context.insert(key.to_string(), value.to_string());
-       self
+    pub fn add_context(mut self, key: &str, value: &str) -> Self {
+        self.context.insert(key.to_string(), value.to_string());
+        self
     }
-    pub fn build(mut self) -> GroupBy {
+    pub fn build(self) -> GroupBy {
         GroupBy {
             data_source: self.data_source,
             dimensions: self.dimensions,
@@ -257,7 +258,6 @@ impl GroupByBuilder {
             intervals: self.intervals,
             subtotal_spec: self.subtotal_spec,
             context: self.context,
-            
         }
     }
 }

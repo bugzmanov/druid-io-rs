@@ -27,7 +27,7 @@ mod test {
                 "field": null
             }
        "#;
-       let testStruct = serde_json::from_str::<TestStruct>(str);
-       assert!(testStruct.unwrap().field.is_empty())
+       let test_struct = serde_json::from_str::<TestStruct>(str);
+       assert!(test_struct.unwrap().field.is_empty())
     }
 }

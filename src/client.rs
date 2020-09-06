@@ -1,9 +1,7 @@
-use crate::query::model::Aggregation;
 use crate::query::model::{DataSourceMetadata, Query, JsonAny};
 use crate::query::DataSource;
-use crate::query::Dimension;
 use crate::query::{
-    group_by::GroupBy, scan::Scan, search::Search, time_boundary::TimeBoundary, Granularity, segment_metadata::SegmentMetadata,
+    group_by::GroupBy, scan::Scan, search::Search, time_boundary::TimeBoundary, Granularity, segment_metadata::SegmentMetadata, top_n::TopN,
 };
 use crate::serialization::default_for_null;
 use reqwest::Client;
@@ -65,7 +63,7 @@ pub struct TimeBoundaryResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ColumnDefinition {
     #[serde(rename (deserialize = "type"))]
-    columnType: String,
+    column_type: String,
     has_multiple_values: bool,
     size: usize,
     cardinality: Option<f32>,
@@ -89,7 +87,7 @@ pub struct AggregatorDefinition {
 pub struct TimestampSpec {
     column: String,
     format: String,
-    missingValue: Option<String>,
+    missing_value: Option<String>,
 }
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -169,6 +167,12 @@ impl DruidClient {
     pub async fn query<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &Query,
+    ) -> Result<Vec<T>, DruidClientError> {
+        self._query(query).await
+    }
+    pub async fn top_n<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+        &self,
+        query: &TopN,
     ) -> Result<Vec<QueryListResult<T>>, DruidClientError> {
         self._query(query).await
     }
@@ -213,12 +217,12 @@ impl DruidClient {
         let request = serde_json::to_string(&query)
             .map_err(|err| DruidClientError::ParsingError { source: err });
 
-        let response = match dbg!(request) {
+        let response = match request {
             Ok(str) => self.http_query(&str).await,
             Err(e) => Err(e),
         };
 
-        let response = dbg!(response).and_then(|str| {
+        let response = response.and_then(|str| {
             serde_json::from_str::<Resp>(&str)
                 .map_err(|source| DruidClientError::ParsingResponseError { source: source })
         });
@@ -251,7 +255,7 @@ mod test {
         search::SearchQuerySpec,
         segment_metadata::{AnalysisType, SegmentMetadata, ToInclude},
         time_boundary::{TimeBoundType, TimeBoundary},
-        Filter, JoinType, Ordering, OutputType, SortingOrder,
+        Filter, JoinType, Ordering, OutputType, SortingOrder, top_n::TopN, model::Aggregation, Dimension,
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -262,7 +266,7 @@ mod test {
 
     #[test]
     fn test_top_n_query() {
-        let top_n = Query::TopN {
+        let top_n = TopN {
             data_source: DataSource::table("wikipedia"),
             dimension: Dimension::default("page"),
             threshold: 10,
@@ -279,24 +283,20 @@ mod test {
             granularity: Granularity::All,
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(druid_client.query::<WikiPage>(&top_n));
+        let result = tokio_test::block_on(druid_client.top_n::<WikiPage>(&top_n));
         println!("{:?}", result.unwrap());
     }
 
     #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
     struct ScanEvent {
-        __time: usize,
-        cityName: Option<String>,
+        #[serde(rename(deserialize = "__time"))]
+        time: usize,
+        city_name: Option<String>,
         comment: Option<String>,
-        // countryIsoCode: String,
-        // isAnonymous: bool,
-        // isMinor: bool,
-        // isNew: bool,
-        // isRobot: bool,
-        // isUnpatrolled: bool,
         namespace: Option<String>,
         page: Option<String>,
-        regionIsoCode: Option<String>,
+        region_iso_code: Option<String>,
         user: String,
 
         #[serde(rename(deserialize = "c.languages"))]
@@ -351,13 +351,13 @@ mod test {
             data_source: DataSource::table("wikipedia"),
             dimensions: vec![Dimension::Default {
                 dimension: "page".into(),
-                output_name: "title".into(),
+                output_name: "page".into(),
                 output_type: OutputType::STRING,
             }],
             limit_spec: Some(LimitSpec {
                 limit: 10,
                 columns: vec![OrderByColumnSpec::new(
-                    "title",
+                    "page",
                     Ordering::Descending,
                     SortingOrder::Alphanumeric,
                 )],
@@ -375,7 +375,7 @@ mod test {
             ],
             post_aggregations: vec![PostAggregation::Arithmetic {
                 name: "count_ololo".into(),
-                Fn: "/".into(),
+                function: "/".into(),
                 fields: vec![
                     PostAggregator::field_access("count_percent", "count"),
                     PostAggregator::constant("hundred", 100.into()),
@@ -426,7 +426,7 @@ mod test {
             ])
             .post_aggregations(vec![PostAggregation::Arithmetic {
                 name: "count_ololo".into(),
-                Fn: "/".into(),
+                function: "/".into(),
                 fields: vec![
                     PostAggregator::field_access("count_percent", "count"),
                     PostAggregator::constant("hundred", 100.into()),
