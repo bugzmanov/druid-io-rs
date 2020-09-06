@@ -13,7 +13,7 @@ use crate::query::{
 use crate::query::{DataSourceMetadata, Query};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -47,10 +47,7 @@ impl DruidClient {
         let strategy = SelectionStategy::default_for(&nodes);
         DruidClient {
             http_client: Client::new(),
-            brokers_pool: Box::new(StaticPool::new(
-                nodes,
-                strategy
-            )),
+            brokers_pool: Box::new(StaticPool::new(nodes, strategy)),
         }
     }
 
@@ -139,7 +136,7 @@ impl DruidClient {
             Err(e) => Err(e),
         };
 
-        let response = dbg!(response).and_then(|str| {
+        let response = response.and_then(|str| {
             serde_json::from_str::<Resp>(&str)
                 .map_err(|source| DruidClientError::ParsingResponseError { source: source })
         });
@@ -176,6 +173,7 @@ mod test {
         time_boundary::{TimeBoundType, TimeBoundary},
         JoinType,
     };
+    use serde::Deserialize;
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
         page: String,

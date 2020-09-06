@@ -1,7 +1,7 @@
-use super::DataSource;
-use super::definitions::Dimension;
 use super::definitions::Aggregation;
+use super::definitions::Dimension;
 use super::definitions::Granularity;
+use super::DataSource;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]

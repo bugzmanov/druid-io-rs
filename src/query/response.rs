@@ -1,8 +1,8 @@
+use super::JsonAny;
+use crate::serialization::default_for_null;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::serialization::default_for_null;
-use super::JsonAny;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct DruidListResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {

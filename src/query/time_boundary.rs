@@ -1,6 +1,5 @@
-
-use super::DataSource;
 use super::definitions::Filter;
+use super::DataSource;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]

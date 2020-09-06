@@ -1,8 +1,8 @@
-use super::DataSource;
 use super::definitions::Filter;
 use super::definitions::Granularity;
-use serde::{Deserialize, Serialize};
 use super::definitions::SortingOrder;
+use super::DataSource;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -18,7 +18,6 @@ pub struct Search {
     pub sort: Option<SortingOrder>,
     pub context: std::collections::HashMap<String, String>,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]

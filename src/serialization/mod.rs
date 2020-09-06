@@ -19,15 +19,15 @@ mod test {
         #[serde(default, deserialize_with = "default_for_null")]
         field: Vec<String>,
     }
-    
+
     #[test]
     fn test_default_for_null() {
-       let str = r#"
+        let str = r#"
             {
                 "field": null
             }
        "#;
-       let test_struct = serde_json::from_str::<TestStruct>(str);
-       assert!(test_struct.unwrap().field.is_empty())
+        let test_struct = serde_json::from_str::<TestStruct>(str);
+        assert!(test_struct.unwrap().field.is_empty())
     }
 }

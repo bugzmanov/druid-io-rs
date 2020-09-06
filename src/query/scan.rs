@@ -1,6 +1,6 @@
-use super::DataSource;
 use super::definitions::Filter;
 use super::definitions::Ordering;
+use super::DataSource;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -17,7 +17,6 @@ pub struct Scan {
     pub ordering: Option<Ordering>,
     pub context: std::collections::HashMap<String, String>,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
