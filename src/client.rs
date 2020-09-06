@@ -1,8 +1,8 @@
-use crate::query::model::{DataSourceMetadata, Query, JsonAny};
-use crate::query::DataSource;
 use crate::query::{
-    group_by::GroupBy, scan::Scan, search::Search, time_boundary::TimeBoundary, Granularity, segment_metadata::SegmentMetadata, top_n::TopN,
+    group_by::GroupBy, scan::Scan, search::Search, segment_metadata::SegmentMetadata,
+    time_boundary::TimeBoundary, top_n::TopN, DataSource,
 };
+use crate::query::{DataSourceMetadata, JsonAny, Query};
 use crate::serialization::default_for_null;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
@@ -67,24 +67,23 @@ pub struct TimeBoundaryResponse {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ColumnDefinition {
-    #[serde(rename (deserialize = "type"))]
+    #[serde(rename(deserialize = "type"))]
     column_type: String,
     has_multiple_values: bool,
     size: usize,
     cardinality: Option<f32>,
     min_value: Option<JsonAny>,
     max_value: Option<JsonAny>,
-    error_message: Option<String>
-
+    error_message: Option<String>,
 }
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AggregatorDefinition {
-    #[serde(rename (deserialize = "type"))]
+    #[serde(rename(deserialize = "type"))]
     aggr_type: String,
     name: String,
     field_name: String,
-    expression: Option<String>
+    expression: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -252,6 +251,8 @@ impl DruidClient {
 mod test {
     use super::*;
     use crate::query::{
+        definitions::Aggregation,
+        definitions::{Dimension, Filter, Granularity, Ordering, OutputType, SortingOrder},
         group_by::{
             GroupBy, GroupByBuilder, HavingSpec, LimitSpec, OrderByColumnSpec, PostAggregation,
             PostAggregator,
@@ -260,7 +261,7 @@ mod test {
         search::SearchQuerySpec,
         segment_metadata::{AnalysisType, SegmentMetadata, ToInclude},
         time_boundary::{TimeBoundType, TimeBoundary},
-        Filter, JoinType, Ordering, OutputType, SortingOrder, top_n::TopN, model::Aggregation, Dimension,
+        JoinType,
     };
     #[derive(Serialize, Deserialize, Debug)]
     struct WikiPage {
@@ -445,7 +446,7 @@ mod test {
                 "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into(),
             ])
             .add_context("groupByStrategy", "v2")
-            .add_context("resultAsArray", "true")
+            // .add_context("resultAsArray", "true")
             .build();
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(druid_client.group_by::<Page>(&group_by));
@@ -509,9 +510,7 @@ mod test {
         };
 
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
-        let result = tokio_test::block_on(
-            druid_client.segment_metadata( &segment_query)
-        );
+        let result = tokio_test::block_on(druid_client.segment_metadata(&segment_query));
         println!("{:?}", result.unwrap());
     }
 }

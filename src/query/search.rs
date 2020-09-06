@@ -1,8 +1,8 @@
-use crate::query::DataSource;
-use crate::query::Filter;
-use crate::query::Granularity;
+use super::DataSource;
+use super::definitions::Filter;
+use super::definitions::Granularity;
 use serde::{Deserialize, Serialize};
-use super::SortingOrder;
+use super::definitions::SortingOrder;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

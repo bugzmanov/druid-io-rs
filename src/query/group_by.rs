@@ -1,12 +1,10 @@
-use super::{
-    model::{Aggregation, JsonAny, JsonNumber},
-    SortingOrder,
-};
-use crate::query::DataSource;
-use crate::query::Dimension;
-use crate::query::Filter;
-use crate::query::Granularity;
-use crate::query::Ordering;
+use crate::query::definitions::SortingOrder;
+use crate::query::definitions::Aggregation;
+use super::DataSource;
+use super::definitions::Dimension;
+use super::definitions::Filter;
+use super::definitions::Granularity;
+use super::{JsonNumber, definitions::Ordering, JsonAny};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]

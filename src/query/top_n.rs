@@ -1,7 +1,7 @@
-use crate::query::DataSource;
-use crate::query::Dimension;
-use crate::query::model::Aggregation;
-use crate::query::Granularity;
+use super::DataSource;
+use super::definitions::Dimension;
+use super::definitions::Aggregation;
+use super::definitions::Granularity;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]

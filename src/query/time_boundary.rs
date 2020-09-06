@@ -1,6 +1,6 @@
 
-use crate::query::DataSource;
-use crate::query::Filter;
+use super::DataSource;
+use super::definitions::Filter;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
