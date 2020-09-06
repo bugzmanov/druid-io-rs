@@ -11,18 +11,20 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct QueryListResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct DruidListResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     pub timestamp: String,
     #[serde(bound = "")]
     pub result: Vec<T>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct QueryResult<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct MetadataResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     pub timestamp: String,
     #[serde(bound = "")]
     pub result: T,
 }
+
+type TopNResponse<T> = DruidListResponse<T>;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
@@ -34,8 +36,11 @@ pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct DimValue {
     pub dimension: String,
-    pub value: String,
+    pub value: JsonAny,
+    pub count: usize,
 }
+
+type SearchResponse = DruidListResponse<DimValue>;
 
 #[serde(rename_all = "camelCase")]
 #[derive(Deserialize, Serialize, Debug)]
@@ -173,27 +178,27 @@ impl DruidClient {
     pub async fn top_n<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &TopN,
-    ) -> Result<Vec<QueryListResult<T>>, DruidClientError> {
+    ) -> ClientResult<Vec<TopNResponse<T>>> {
         self._query(query).await
     }
 
     pub async fn search<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &Search,
-    ) -> Result<Vec<QueryListResult<DimValue>>, DruidClientError> {
+    ) -> ClientResult<Vec<SearchResponse>> {
         self._query(query).await
     }
 
     pub async fn group_by<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &GroupBy,
-    ) -> Result<Vec<GroupByResponse<T>>, DruidClientError> {
+    ) -> ClientResult<Vec<GroupByResponse<T>>> {
         self._query(query).await
     }
     pub async fn scan<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &Scan,
-    ) -> Result<Vec<ScanResponse<T>>, DruidClientError> {
+    ) -> ClientResult<Vec<ScanResponse<T>>> {
         self._query(query).await
     }
     pub async fn time_boundary<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
@@ -222,7 +227,7 @@ impl DruidClient {
             Err(e) => Err(e),
         };
 
-        let response = response.and_then(|str| {
+        let response = dbg!(response).and_then(|str| {
             serde_json::from_str::<Resp>(&str)
                 .map_err(|source| DruidClientError::ParsingResponseError { source: source })
         });
@@ -233,7 +238,7 @@ impl DruidClient {
     pub async fn datasource_metadata(
         self,
         data_source: DataSource,
-    ) -> ClientResult<Vec<QueryResult<HashMap<String, String>>>> {
+    ) -> ClientResult<Vec<MetadataResponse<HashMap<String, String>>>> {
         let query = DataSourceMetadata {
             data_source: data_source,
             context: Default::default(),
@@ -266,6 +271,8 @@ mod test {
 
     #[test]
     fn test_top_n_query() {
+        let mut context = HashMap::new();
+        context.insert("resultAsArray".to_string(), "true".to_string());
         let top_n = TopN {
             data_source: DataSource::table("wikipedia"),
             dimension: Dimension::default("page"),
@@ -281,6 +288,7 @@ mod test {
             ],
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             granularity: Granularity::All,
+            context: context,
         };
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(druid_client.top_n::<WikiPage>(&top_n));
@@ -437,6 +445,7 @@ mod test {
                 "-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into(),
             ])
             .add_context("groupByStrategy", "v2")
+            .add_context("resultAsArray", "true")
             .build();
         let druid_client = DruidClient::new(&vec!["ololo".into()]);
         let result = tokio_test::block_on(druid_client.group_by::<Page>(&group_by));

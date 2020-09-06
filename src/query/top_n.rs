@@ -16,4 +16,5 @@ pub struct TopN {
     pub aggregations: Vec<Aggregation>,
     pub intervals: Vec<String>,
     pub granularity: Granularity,
+    pub context: std::collections::HashMap<String, String>,
 }
