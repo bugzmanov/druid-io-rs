@@ -1,10 +1,16 @@
 [package]
-name = "druid-io-client"
+name = "druid-io"
 version = "0.1.0"
-authors = ["bugzmanov <bugzmanov@gmail.com>"]
+authors = ["Rafael Bagmanov <bugzmanov@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+homepage = "https://github.com/bugzmanov/druid-io-rs"
+repository = "https://github.com/bugzmanov/druid-io-rs"
+description = "Asynchronous Apache Druid client library."
+readme = "README.md"
+keywords = ["tokio", "database", "druid"]
+categories = ["database"]
+exclude = ["tests/*", "examples/*"]
 
 [dependencies]
 reqwest = { version = "0.10", features = ["stream"] }

@@ -1,17 +1,20 @@
 # Async rust client for Apache Druid 
 
-Fully asynchronous, future-enabled [Apache Druid](http://druid.io/) client library for rust language.
+<div style="text-align:center"><img src="https://user-images.githubusercontent.com/502482/92417225-22556480-f12f-11ea-82a5-346ef3994401.png" width="10%"/></div>
 
-The library provides staticly typed API for [Native Queries](https://druid.apache.org/docs/latest/querying/querying.html) and less strict API for [SQL Queries](https://druid.apache.org/docs/latest/querying/sql.html).
+Fully asynchronous, future-enabled [Apache Druid](http://druid.io/) client library for rust programming language.
+
+The library provides staticly typed API for [Native Queries](https://druid.apache.org/docs/latest/querying/querying.html) 
 
 ## Installation
-Library is hosted on [crates.io](https://crates.io/crates/druid-io-client/).
+The library is hosted on [crates.io](https://crates.io/crates/druid-io/).
+
 ```toml
 [dependencies]
-druid-io-client = "*"
+druid-io = "*"
 ```
 
-## Supported Queries
+## Supported Native Queries
 
 * Timeseries
 * TopN
