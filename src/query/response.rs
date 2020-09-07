@@ -105,3 +105,11 @@ pub struct SegmentMetadataResponse {
     #[serde(default, deserialize_with = "default_for_null")]
     aggregators: HashMap<String, AggregatorDefinition>,
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeseriesResponse <T: DeserializeOwned + std::fmt::Debug + Serialize>{
+    timestamp: Option<String>,
+    #[serde(bound = "")]
+    result: T,
+}

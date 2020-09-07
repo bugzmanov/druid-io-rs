@@ -1,5 +1,5 @@
 [package]
-name = "druid-client-rust"
+name = "druid-io-client"
 version = "0.1.0"
 authors = ["bugzmanov <bugzmanov@gmail.com>"]
 edition = "2018"

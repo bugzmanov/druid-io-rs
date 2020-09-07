@@ -1,3 +1,4 @@
+use crate::query::timeseries::Timeseries;
 use crate::connection::{BrokersPool, SelectionStategy, StaticPool};
 use crate::query::response::GroupByResponse;
 use crate::query::response::MetadataResponse;
@@ -5,7 +6,7 @@ use crate::query::response::ScanResponse;
 use crate::query::response::SearchResponse;
 use crate::query::response::SegmentMetadataResponse;
 use crate::query::response::TimeBoundaryResponse;
-use crate::query::response::TopNResponse;
+use crate::query::response::{DruidListResponse, TopNResponse, TimeseriesResponse};
 use crate::query::{
     group_by::GroupBy, scan::Scan, search::Search, segment_metadata::SegmentMetadata,
     time_boundary::TimeBoundary, top_n::TopN, DataSource,
@@ -81,7 +82,7 @@ impl DruidClient {
     pub async fn query<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
         &self,
         query: &Query,
-    ) -> Result<Vec<T>, DruidClientError> {
+    ) -> ClientResult<Vec<T>> {
         self._query(query).await
     }
     pub async fn top_n<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
@@ -120,6 +121,13 @@ impl DruidClient {
         &self,
         query: &SegmentMetadata,
     ) -> ClientResult<Vec<SegmentMetadataResponse>> {
+        self._query(query).await
+    }
+
+    pub async fn timeseries<'a, T: DeserializeOwned + std::fmt::Debug + Serialize>(
+        &self,
+        query: &Timeseries,
+    ) -> ClientResult<Vec<TimeseriesResponse<T>>> {
         self._query(query).await
     }
 
@@ -308,6 +316,48 @@ mod test {
         };
         let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
         let result = tokio_test::block_on(druid_client.group_by::<WikiPage>(&group_by));
+        println!("{:?}", result.unwrap());
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct TimeAggr {
+        count: usize,
+        count_ololo: f32,
+        user: String,
+    }
+#[test]
+    fn test_timeseries() {
+        let mut context = HashMap::new();
+        context.insert("grandTotal".to_string(), "true".to_string());
+        
+        let timeseries = Timeseries {
+            data_source: DataSource::table("wikipedia"),
+            limit: Some(10),
+            descending: false,
+            granularity: Granularity::All,
+            filter: None,//Some(Filter::selector("user", "Taffe316")),
+            aggregations: vec![
+                Aggregation::count("count"),
+                Aggregation::StringFirst {
+                    name: "user".into(),
+                    field_name: "user".into(),
+                    max_string_bytes: 1024,
+                },
+            ],
+            post_aggregations: vec![PostAggregation::Arithmetic {
+                name: "count_ololo".into(),
+                function: "/".into(),
+                fields: vec![
+                    PostAggregator::field_access("count_percent", "count"),
+                    PostAggregator::constant("hundred", 100.into()),
+                ],
+                ordering: None,
+            }],
+            intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
+            context: context,
+        };
+        let druid_client = DruidClient::new(vec!["localhost:8082".to_string()]);
+        let result = tokio_test::block_on(druid_client.timeseries::<TimeAggr>(&timeseries));
         println!("{:?}", result.unwrap());
     }
 

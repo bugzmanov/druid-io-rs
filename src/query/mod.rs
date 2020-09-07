@@ -5,6 +5,7 @@ use segment_metadata::SegmentMetadata;
 use serde::{Deserialize, Serialize};
 use time_boundary::TimeBoundary;
 use top_n::TopN;
+use timeseries::Timeseries;
 
 pub mod definitions;
 pub mod group_by;
@@ -14,17 +15,19 @@ pub mod search;
 pub mod segment_metadata;
 pub mod time_boundary;
 pub mod top_n;
+pub mod timeseries;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 #[serde(rename_all = "camelCase")]
 pub enum Query {
-    TopN(TopN),
     GroupBy(GroupBy),
     Scan(Scan),
     Search(Search),
-    TimeBoundary(TimeBoundary),
     SegmentMetadata(SegmentMetadata),
+    TimeBoundary(TimeBoundary),
+    Timeseries(Timeseries),
+    TopN(TopN),
 }
 impl From<TopN> for Query {
     fn from(query: TopN) -> Self {
@@ -54,6 +57,11 @@ impl From<TimeBoundary> for Query {
 impl From<SegmentMetadata> for Query {
     fn from(query: SegmentMetadata) -> Self {
         Query::SegmentMetadata(query)
+    }
+}
+impl From<Timeseries> for Query {
+    fn from(query: Timeseries) -> Self {
+        Query::Timeseries(query)
     }
 }
 
