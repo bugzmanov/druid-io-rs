@@ -136,7 +136,7 @@ impl DruidClient {
             Err(e) => Err(e),
         };
 
-        let response = response.and_then(|str| {
+        let response = dbg!( response ).and_then(|str| {
             serde_json::from_str::<Resp>(&str)
                 .map_err(|source| DruidClientError::ParsingResponseError { source: source })
         });
@@ -221,7 +221,7 @@ mod test {
 
         #[serde(rename(deserialize = "c.languages"))]
         languages: Option<String>,
-        count: usize,
+        // count: usize,
     }
     #[test]
     fn test_scan_join() {
@@ -403,7 +403,7 @@ mod test {
     #[test]
     fn test_segment_metadata() {
         let segment_query = SegmentMetadata {
-            data_source: DataSource::table("wikipedia"),
+            data_source: DataSource::table("countries"),
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             to_include: ToInclude::All,
             merge: false,

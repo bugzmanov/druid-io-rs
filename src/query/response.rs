@@ -1,5 +1,6 @@
-use super::JsonAny;
+use super::{definitions::Granularity, JsonAny};
 use crate::serialization::default_for_null;
+use crate::serialization::tagged_or_untagged;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -94,7 +95,9 @@ pub struct SegmentMetadataResponse {
     #[serde(default, deserialize_with = "default_for_null")]
     intervals: Vec<String>,
     columns: HashMap<String, ColumnDefinition>,
-    query_granularity: Option<String>,
+
+    #[serde(deserialize_with = "tagged_or_untagged")]
+    query_granularity: Granularity,
     rollup: Option<bool>,
     size: Option<usize>,
     num_rows: Option<usize>,

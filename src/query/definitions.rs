@@ -267,8 +267,14 @@ pub enum Granularity {
     Quarter,
     Year,
     Duration { duration: usize },
+    Null,
 }
 
+impl Default for Granularity {
+    fn default() -> Self {
+        Granularity::Null
+    }
+}
 #[rustfmt::skip]
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
