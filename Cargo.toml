@@ -10,7 +10,7 @@ description = "Asynchronous Apache Druid client library."
 readme = "README.md"
 keywords = ["tokio", "database", "druid"]
 categories = ["database"]
-exclude = ["tests/*", "examples/*"]
+exclude = ["tests/*", "examples/*", "docker/*"]
 
 [dependencies]
 reqwest = { version = "0.10", features = ["stream"] }

@@ -1,7 +1,7 @@
 use super::definitions::Filter;
 use super::definitions::Granularity;
-use super::DataSource;
 use super::group_by::PostAggregation;
+use super::DataSource;
 use crate::query::definitions::Aggregation;
 use serde::{Deserialize, Serialize};
 

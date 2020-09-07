@@ -4,8 +4,8 @@ use scan::Scan;
 use segment_metadata::SegmentMetadata;
 use serde::{Deserialize, Serialize};
 use time_boundary::TimeBoundary;
-use top_n::TopN;
 use timeseries::Timeseries;
+use top_n::TopN;
 
 pub mod definitions;
 pub mod group_by;
@@ -14,8 +14,8 @@ pub mod scan;
 pub mod search;
 pub mod segment_metadata;
 pub mod time_boundary;
-pub mod top_n;
 pub mod timeseries;
+pub mod top_n;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]

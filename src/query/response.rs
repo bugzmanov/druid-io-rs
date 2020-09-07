@@ -108,7 +108,7 @@ pub struct SegmentMetadataResponse {
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct TimeseriesResponse <T: DeserializeOwned + std::fmt::Debug + Serialize>{
+pub struct TimeseriesResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
     timestamp: Option<String>,
     #[serde(bound = "")]
     result: T,
