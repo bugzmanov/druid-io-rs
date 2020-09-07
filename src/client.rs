@@ -136,7 +136,7 @@ impl DruidClient {
             Err(e) => Err(e),
         };
 
-        let response = dbg!( response ).and_then(|str| {
+        let response = response.and_then(|str| {
             serde_json::from_str::<Resp>(&str)
                 .map_err(|source| DruidClientError::ParsingResponseError { source: source })
         });

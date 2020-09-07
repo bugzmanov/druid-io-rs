@@ -1,9 +1,8 @@
 use serde::de::{self, MapAccess, Visitor};
-use serde::de::{value, IntoDeserializer};
+use serde::de::IntoDeserializer;
 use serde::{Deserialize, Deserializer};
 use std::fmt;
 use std::marker::PhantomData;
-use std::str::FromStr;
 
 pub(crate) fn default_for_null<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
@@ -93,6 +92,7 @@ mod test {
     }
 
     #[derive(Eq, PartialEq, Deserialize, Serialize, Debug)]
+    #[serde(rename_all = "camelCase")]
     enum Tagged {
         One,
         Two,
