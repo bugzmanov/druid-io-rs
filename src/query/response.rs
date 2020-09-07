@@ -6,25 +6,25 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct DruidListResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct DruidListResponse<T: DeserializeOwned> {
     pub timestamp: String,
-    #[serde(bound = "")]
+    #[serde(bound (deserialize = ""))]
     pub result: Vec<T>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct MetadataResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct MetadataResponse<T: DeserializeOwned> {
     pub timestamp: String,
-    #[serde(bound = "")]
+    #[serde(bound (deserialize = ""))]
     pub result: T,
 }
 
 pub type TopNResponse<T> = DruidListResponse<T>;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct GroupByResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct GroupByResponse<T: DeserializeOwned> {
     pub timestamp: String,
-    #[serde(bound = "")]
+    #[serde(bound (deserialize = ""))]
     pub event: T,
 }
 
@@ -39,10 +39,10 @@ pub type SearchResponse = DruidListResponse<DimValue>;
 
 #[serde(rename_all = "camelCase")]
 #[derive(Deserialize, Serialize, Debug)]
-pub struct ScanResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct ScanResponse<T: DeserializeOwned> {
     segment_id: String,
     columns: Vec<String>,
-    #[serde(bound = "")]
+    #[serde(bound (deserialize = ""))]
     events: Vec<T>,
 }
 
@@ -108,8 +108,8 @@ pub struct SegmentMetadataResponse {
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct TimeseriesResponse<T: DeserializeOwned + std::fmt::Debug + Serialize> {
+pub struct TimeseriesResponse<T: DeserializeOwned> {
     timestamp: Option<String>,
-    #[serde(bound = "")]
+    #[serde(bound (deserialize = ""))]
     result: T,
 }
