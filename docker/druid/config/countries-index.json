@@ -1,0 +1,56 @@
+{
+  "type": "index_parallel",
+  "spec": {
+    "ioConfig": {
+      "type": "index_parallel",
+      "inputSource": {
+        "type": "local",
+        "filter": "countries.csv",
+        "baseDir": "quickstart/tutorial/"
+      },
+      "inputFormat": {
+        "type": "csv",
+        "findColumnsFromHeader": true
+      }
+    },
+    "tuningConfig": {
+      "type": "index_parallel",
+      "partitionsSpec": {
+        "type": "dynamic"
+      }
+    },
+    "dataSchema": {
+      "dataSource": "countries",
+      "granularitySpec": {
+        "type": "uniform",
+        "queryGranularity": "HOUR",
+        "rollup": true,
+        "segmentGranularity": "HOUR"
+      },
+      "timestampSpec": {
+        "column": "!!!_no_such_column_!!!",
+        "missingValue": "2010-01-01T00:00:00Z"
+      },
+      "dimensionsSpec": {
+        "dimensions": [
+          "Capital",
+          "Code",
+          "Currency",
+          "languages",
+          "Name"
+        ]
+      },
+      "metricsSpec": [
+        {
+          "name": "count",
+          "type": "count"
+        },
+        {
+          "name": "sum_PhoneCode",
+          "type": "longSum",
+          "fieldName": "PhoneCode"
+        }
+      ]
+    }
+  }
+}
