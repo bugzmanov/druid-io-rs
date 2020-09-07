@@ -290,7 +290,6 @@ mod test {
                     SortingOrder::Alphanumeric,
                 )],
             }),
-            having: Some(HavingSpec::greater_than("count_ololo", 0.01.into())),
             granularity: Granularity::All,
             filter: Some(Filter::selector("user", "Taffe316")),
             aggregations: vec![
@@ -302,7 +301,7 @@ mod test {
                 },
             ],
             post_aggregations: vec![PostAggregation::Arithmetic {
-                name: "count_ololo".into(),
+                name: "count_fraction".into(),
                 function: "/".into(),
                 fields: vec![
                     PostAggregator::field_access("count_percent", "count"),
@@ -310,6 +309,7 @@ mod test {
                 ],
                 ordering: None,
             }],
+            having: Some(HavingSpec::greater_than("count_fraction", 0.01.into())),
             intervals: vec!["-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z".into()],
             subtotal_spec: Default::default(),
             context: Default::default(),
