@@ -1,6 +1,6 @@
 # Async rust client for Apache Druid 
 
-<div style="text-align:center"><img src="https://user-images.githubusercontent.com/502482/92417225-22556480-f12f-11ea-82a5-346ef3994401.png" width="10%"/></div>
+<div style="text-align:center"><img src="https://user-images.githubusercontent.com/502482/92421491-c26ab800-f146-11ea-80af-0da8ce4a457d.png" width="10%"/></div>
 
 Fully asynchronous, future-enabled [Apache Druid](http://druid.io/) client library for rust programming language.
 
